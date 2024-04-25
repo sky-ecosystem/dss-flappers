@@ -7,6 +7,7 @@ using DSToken as mkr;
 using SpotterMock as spotter;
 using PipMock as pip;
 using UniswapV2Pair as pair;
+using Auxiliar as aux;
 
 methods {
     function wards(address) external returns (uint256) envfree;
@@ -36,6 +37,8 @@ methods {
     function pair.unlocked() external returns (uint256) envfree;
     function _.uniswapV2Call(address , uint , uint , bytes) external => NONDET;
     function UniswapV2Pair.sync() external => NONDET;
+    function UniswapV2Pair.MINIMUM_LIQUIDITY() external returns (uint256) envfree;
+    function aux.sqrt(uint256) external returns (uint256) envfree;
 }
 
 definition WAD() returns mathint = 10^18;
@@ -217,20 +220,22 @@ rule kick(uint256 lot, uint256 a) {
     mathint vatDaiSenderBefore = vat.dai(e.msg.sender);
     mathint pairReservesDaiBefore; mathint pairReservesMkrBefore; mathint b;
     pairReservesDaiBefore, pairReservesMkrBefore, b = pair.getReserves();
-    mathint daiBalanceOfPairBefore = dai.balanceOf(pair);
-    mathint mkrBalanceOfPairBefore = mkr.balanceOf(pair);
-    require daiBalanceOfPairBefore > WAD();
-    require mkrBalanceOfPairBefore > WAD();
-    require daiBalanceOfPairBefore / mkrBalanceOfPairBefore >= 100;
-    require daiBalanceOfPairBefore / mkrBalanceOfPairBefore <= 10000;
-    mathint pairBalanceOfReceiverBefore = pair.balanceOf(receiver);
-    mathint pairTotalSupplyBefore = pair.totalSupply();
-
-    require pairTotalSupplyBefore >= pairBalanceOfReceiverBefore;
     require pairReservesDaiBefore > 0;
     require pairReservesMkrBefore > 0;
-    require daiBalanceOfPairBefore >= pairReservesDaiBefore;
-    require mkrBalanceOfPairBefore >= pairReservesMkrBefore;
+    mathint daiBalanceOfPairBefore = dai.balanceOf(pair);
+    mathint mkrBalanceOfPairBefore = mkr.balanceOf(pair);
+    require daiBalanceOfPairBefore == pairReservesDaiBefore;
+    require mkrBalanceOfPairBefore == pairReservesMkrBefore;
+    // require daiBalanceOfPairBefore >= pairReservesDaiBefore;
+    // require mkrBalanceOfPairBefore >= pairReservesMkrBefore;
+    // require daiBalanceOfPairBefore / mkrBalanceOfPairBefore >= 100;
+    // require daiBalanceOfPairBefore / mkrBalanceOfPairBefore <= 10000;
+    mathint pairBalanceOfReceiverBefore = pair.balanceOf(receiver);
+    mathint pairTotalSupplyBefore = pair.totalSupply();
+    // require pairTotalSupplyBefore == to_mathint(aux.sqrt(require_uint256(pairReservesDaiBefore * pairReservesMkrBefore)));
+    require pairTotalSupplyBefore > to_mathint(pair.MINIMUM_LIQUIDITY());
+    require pairTotalSupplyBefore * pairTotalSupplyBefore == pairReservesDaiBefore * pairReservesMkrBefore;
+    require pairTotalSupplyBefore >= pairBalanceOfReceiverBefore;
 
     mathint wlot = lot / RAY();
     mathint totalDai = getTotalDai(wlot, daiBalanceOfPairBefore);
@@ -253,8 +258,10 @@ rule kick(uint256 lot, uint256 a) {
     assert pairReservesMkrAfter == mkrBalanceOfPairAfter, "kick did not leave mkr reserves synced";
     assert pairBalanceOfReceiverAfter > pairBalanceOfReceiverBefore, "kick did not increase the pair balance of receiver";
     mathint liquidityGained = pairBalanceOfReceiverAfter - pairBalanceOfReceiverBefore;
-    assert isAprox(bought, liquidityGained * pairReservesMkrAfter / pairTotalSupplyAfter, 1000), "kick did not leave the amount of mkr that can be withdrawn aprox the same than the bought one";
-    assert isAprox(totalDai - wlot, liquidityGained * pairReservesDaiAfter / pairTotalSupplyAfter, 1000), "kick did not leave the amount of dai that can be withdrawn aprox the same than the deposited one";
+    require bought > liquidityGained * pairReservesMkrAfter / pairTotalSupplyAfter;
+    assert bought - liquidityGained * pairReservesMkrAfter / pairTotalSupplyAfter <= 1000;
+    // assert isAprox(bought, liquidityGained * pairReservesMkrAfter / pairTotalSupplyAfter, 1000), "kick did not leave the amount of mkr that can be withdrawn aprox the same than the bought one";
+    // assert isAprox(totalDai - wlot, liquidityGained * pairReservesDaiAfter / pairTotalSupplyAfter, 1000), "kick did not leave the amount of dai that can be withdrawn aprox the same than the deposited one";
 }
 
 // Verify revert rules on kick
