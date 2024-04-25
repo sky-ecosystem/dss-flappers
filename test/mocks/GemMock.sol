@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.21;
 
 contract GemMock {
     mapping (address => uint256)                      public balanceOf;
