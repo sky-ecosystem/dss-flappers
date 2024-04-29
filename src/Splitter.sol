@@ -39,13 +39,13 @@ contract Splitter {
     mapping (address => uint256) public wards;
     uint256     public           live;    // Active Flag
     FlapLike    public           flapper; // Underlying burner strategy
+    FarmLike    public           farm;    // Underlying farming strategy
     uint256     public           burn;    // [WAD]       Burn percentage. 1 WAD = funneling 100% to the burn engine
     uint256     public           hop;     // [Seconds]   Time between kicks
     uint256     public           zzz;     // [Timestamp] Last kick
 
     VatLike     public immutable vat;
     DaiJoinLike public immutable daiJoin;
-    FarmLike    public immutable farm;
 
     event Rely(address indexed usr);
     event Deny(address indexed usr);
@@ -55,12 +55,10 @@ contract Splitter {
     event Cage(uint256 rad);
 
     constructor(
-        address _daiJoin,
-        address _farm
+        address _daiJoin
     ) {
         daiJoin = DaiJoinLike(_daiJoin);
         vat     = VatLike(daiJoin.vat());
-        farm    = FarmLike(_farm);
         
         vat.hope(_daiJoin);
         
@@ -91,7 +89,8 @@ contract Splitter {
     }
 
     function file(bytes32 what, address data) external auth {
-        if (what == "flapper") flapper = FlapLike(data);
+        if      (what == "flapper") flapper = FlapLike(data);
+        else if (what == "farm")    farm = FarmLike(data);
         else revert("Splitter/file-unrecognized-param");
         emit File(what, data);
     }

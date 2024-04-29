@@ -20,7 +20,7 @@ import "dss-test/DssTest.sol";
 
 import { SplitterInstance } from "deploy/SplitterInstance.sol";
 import { FlapperDeploy } from "deploy/FlapperDeploy.sol";
-import { SplitterConfig, FlapperUniV2Config, FlapperInit } from "deploy/FlapperInit.sol";
+import { SplitterConfig, FlapperUniV2Config, FarmConfig, FlapperInit } from "deploy/FlapperInit.sol";
 import { Splitter } from "src/Splitter.sol";
 import { FlapperUniV2SwapOnly } from "src/FlapperUniV2SwapOnly.sol";
 import { StakingRewardsMock } from "test/mocks/StakingRewardsMock.sol";
@@ -118,8 +118,7 @@ contract SplitterTest is DssTest {
         SplitterInstance memory splitterInstance = FlapperDeploy.deploySplitter({
             deployer: address(this),
             owner:    PAUSE_PROXY,
-            daiJoin:  DAI_JOIN,
-            farm:     address(farm)
+            daiJoin:  DAI_JOIN
         });
         splitter = Splitter(splitterInstance.splitter);
 
@@ -142,7 +141,6 @@ contract SplitterTest is DssTest {
             bump:                5707 * RAD,
             hop:                 30 minutes,
             burn:                70 * WAD / 100,
-            farm:                address(farm),
             daiJoin:             DAI_JOIN,
             splitterChainlogKey: "MCD_FLAP_SPLIT",
             prevMomChainlogKey:  "FLAPPER_MOM",
@@ -157,11 +155,17 @@ contract SplitterTest is DssTest {
             prevChainlogKey: bytes32(0),
             chainlogKey:     "MCD_FLAP_BURN"
         });
+        FarmConfig memory farmCfg = FarmConfig({
+            splitter: address(splitter),
+            daiJoin:  DAI_JOIN,
+            hop:      30 minutes
+        });
 
         DssInstance memory dss = MCD.loadFromChainlog(LOG);
         FlapperInit.initSplitter(dss, splitterInstance, splitterCfg);
         FlapperInit.initFlapperUniV2(dss, address(flapper), flapperCfg);
         FlapperInit.initDirectOracle(address(flapper));
+        FlapperInit.initFarm(address(farm), farmCfg);
         vm.stopPrank();
 
         assertEq(dss.chainlog.getAddress("MCD_FLAP_SPLIT"), splitterInstance.splitter);
@@ -288,13 +292,12 @@ contract SplitterTest is DssTest {
     function testConstructor() public {
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
-        Splitter s = new Splitter(DAI_JOIN, address(0xfff));
+        Splitter s = new Splitter(DAI_JOIN);
 
         assertEq(s.hop(), 1 hours);
         assertEq(s.zzz(), 0);
         assertEq(address(s.daiJoin()),  DAI_JOIN);
         assertEq(address(s.vat()), address(vat));
-        assertEq(address(s.farm()), address(0xfff));
         assertEq(s.wards(address(this)), 1);
         assertEq(s.live(), 1);
     }
@@ -317,7 +320,7 @@ contract SplitterTest is DssTest {
     }
 
     function testFileAddress() public {
-        checkFileAddress(address(splitter), "Splitter", ["flapper"]);
+        checkFileAddress(address(splitter), "Splitter", ["flapper", "farm"]);
     }
 
     function testKick() public {

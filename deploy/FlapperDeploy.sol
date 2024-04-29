@@ -57,10 +57,9 @@ library FlapperDeploy {
     function deploySplitter(
         address deployer,
         address owner,
-        address daiJoin,
-        address farm
+        address daiJoin
     ) internal returns (SplitterInstance memory splitterInstance) {
-        address splitter = address(new Splitter(daiJoin, farm));
+        address splitter = address(new Splitter(daiJoin));
         address mom = address(new SplitterMom(splitter));
 
         ScriptTools.switchOwner(splitter, deployer, owner);
