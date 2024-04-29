@@ -109,16 +109,18 @@ contract SplitterMomTest is DssTest {
             chainlogKey:     "MCD_FLAP_LP"
         });
         FarmConfig memory farmCfg = FarmConfig({
-            splitter: address(splitter),
-            daiJoin:  DAI_JOIN,
-            hop:      5 minutes
+            splitter:        address(splitter),
+            daiJoin:         DAI_JOIN,
+            hop:             5 minutes,
+            prevChainlogKey: bytes32(0),
+            chainlogKey:     "MCD_FARM_NST"
         });
         DssInstance memory dss = MCD.loadFromChainlog(LOG);
 
         vm.startPrank(PAUSE_PROXY);
         FlapperInit.initSplitter(dss, splitterInstance, splitterCfg);
         FlapperInit.initFlapperUniV2(dss, flapper, flapperCfg);
-        FlapperInit.initFarm(farm, farmCfg);
+        FlapperInit.initFarm(dss, farm, farmCfg);
         vm.stopPrank();
 
         vm.expectRevert("dss-chain-log/invalid-key");

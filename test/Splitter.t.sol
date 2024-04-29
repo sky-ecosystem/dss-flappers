@@ -156,19 +156,23 @@ contract SplitterTest is DssTest {
             chainlogKey:     "MCD_FLAP_BURN"
         });
         FarmConfig memory farmCfg = FarmConfig({
-            splitter: address(splitter),
-            daiJoin:  DAI_JOIN,
-            hop:      30 minutes
+            splitter:        address(splitter),
+            daiJoin:         DAI_JOIN,
+            hop:             30 minutes,
+            prevChainlogKey: bytes32(0),
+            chainlogKey:     "MCD_FARM_NST"
         });
 
         DssInstance memory dss = MCD.loadFromChainlog(LOG);
         FlapperInit.initSplitter(dss, splitterInstance, splitterCfg);
         FlapperInit.initFlapperUniV2(dss, address(flapper), flapperCfg);
         FlapperInit.initDirectOracle(address(flapper));
-        FlapperInit.initFarm(address(farm), farmCfg);
+        FlapperInit.initFarm(dss, address(farm), farmCfg);
         vm.stopPrank();
 
         assertEq(dss.chainlog.getAddress("MCD_FLAP_SPLIT"), splitterInstance.splitter);
+        assertEq(dss.chainlog.getAddress("MCD_FLAP_BURN"), address(flapper));
+        assertEq(dss.chainlog.getAddress("MCD_FARM_NST"), address(farm));
 
         // Add initial liquidity if needed
         (uint256 reserveDai, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, DAI, MKR);

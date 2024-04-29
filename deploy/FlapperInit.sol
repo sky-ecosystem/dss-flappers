@@ -84,6 +84,8 @@ struct FarmConfig {
     address splitter;
     address daiJoin;
     uint256 hop;
+    bytes32 prevChainlogKey;
+    bytes32 chainlogKey;
 }
 
 struct SplitterConfig {
@@ -149,6 +151,7 @@ library FlapperInit {
     }
 
     function initFarm(
+        DssInstance memory dss,
         address            farm_,
         FarmConfig  memory cfg
     ) internal {
@@ -162,6 +165,9 @@ library FlapperInit {
 
         farm.setRewardsDistribution(cfg.splitter);
         farm.setRewardsDuration(cfg.hop);
+
+        if (cfg.prevChainlogKey != bytes32(0)) dss.chainlog.removeAddress(cfg.prevChainlogKey);
+        dss.chainlog.setAddress(cfg.chainlogKey, farm_);
     }
 
     function initSplitter(        
