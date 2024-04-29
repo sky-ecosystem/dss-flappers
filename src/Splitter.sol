@@ -90,7 +90,7 @@ contract Splitter {
 
     function file(bytes32 what, address data) external auth {
         if      (what == "flapper") flapper = FlapLike(data);
-        else if (what == "farm")    farm = FarmLike(data);
+        else if (what == "farm")    farm    = FarmLike(data);
         else revert("Splitter/file-unrecognized-param");
         emit File(what, data);
     }
