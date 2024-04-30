@@ -302,6 +302,7 @@ contract SplitterTest is DssTest {
         assertEq(s.zzz(), 0);
         assertEq(address(s.daiJoin()),  DAI_JOIN);
         assertEq(address(s.vat()), address(vat));
+        assertEq(address(s.farm()), address(0));
         assertEq(s.wards(address(this)), 1);
         assertEq(s.live(), 1);
     }
