@@ -39,7 +39,7 @@ contract Splitter {
     mapping (address => uint256) public wards;
     uint256     public           live;    // Active Flag
     FlapLike    public           flapper; // Underlying burner strategy
-    FarmLike    public           farm;    // Underlying farming strategy
+    FarmLike    public           farm;    // StakingRewards contract receiving DAI rewards
     uint256     public           burn;    // [WAD]       Burn percentage. 1 WAD = funneling 100% to the burn engine
     uint256     public           hop;     // [Seconds]   Time between kicks
     uint256     public           zzz;     // [Timestamp] Last kick
