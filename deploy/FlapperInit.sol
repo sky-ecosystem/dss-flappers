@@ -159,7 +159,9 @@ library FlapperInit {
         SplitterLike splitter = SplitterLike(cfg.splitter);
 
         require(farm.rewardsToken() == DaiJoinLike(cfg.daiJoin).dai(), "Farm rewards not dai");
-        require(splitter.hop() == cfg.hop, "Farm hop mismatch");
+
+        require(cfg.hop >= 5 minutes, "hop too low");
+        require(cfg.hop == splitter.hop(), "hop mismatch");
 
         splitter.file("farm", farm_);
 
