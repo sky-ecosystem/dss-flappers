@@ -160,6 +160,7 @@ library FlapperInit {
 
         require(farm.rewardsToken() == DaiJoinLike(cfg.daiJoin).dai(), "Farm rewards not dai");
 
+        // The following two checks enforce the initSplitter function has to be called first
         require(cfg.hop >= 5 minutes, "hop too low");
         require(cfg.hop == splitter.hop(), "hop mismatch");
 
