@@ -167,7 +167,7 @@ contract SplitterTest is DssTest {
         FlapperInit.initSplitter(dss, splitterInstance, splitterCfg);
         FlapperInit.initFlapperUniV2(dss, address(flapper), flapperCfg);
         FlapperInit.initDirectOracle(address(flapper));
-        FlapperInit.initFarm(dss, address(farm), farmCfg);
+        FlapperInit.setFarm(dss, address(farm), farmCfg);
         vm.stopPrank();
 
         assertEq(dss.chainlog.getAddress("MCD_FLAP_SPLIT"), splitterInstance.splitter);

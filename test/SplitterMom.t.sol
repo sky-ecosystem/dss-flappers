@@ -120,7 +120,7 @@ contract SplitterMomTest is DssTest {
         vm.startPrank(PAUSE_PROXY);
         FlapperInit.initSplitter(dss, splitterInstance, splitterCfg);
         FlapperInit.initFlapperUniV2(dss, flapper, flapperCfg);
-        FlapperInit.initFarm(dss, farm, farmCfg);
+        FlapperInit.setFarm(dss, farm, farmCfg);
         vm.stopPrank();
 
         vm.expectRevert("dss-chain-log/invalid-key");

@@ -150,7 +150,7 @@ library FlapperInit {
         dss.chainlog.setAddress(clKey, wrapper_);
     }
 
-    function initFarm(
+    function setFarm(
         DssInstance memory dss,
         address            farm_,
         FarmConfig  memory cfg
@@ -159,6 +159,7 @@ library FlapperInit {
         SplitterLike splitter = SplitterLike(cfg.splitter);
 
         require(farm.rewardsToken() == DaiJoinLike(cfg.daiJoin).dai(), "Farm rewards not dai");
+        // Staking token is checked in the Lockstake script
 
         // The following two checks enforce the initSplitter function has to be called first
         require(cfg.hop >= 5 minutes, "hop too low");
