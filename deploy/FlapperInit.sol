@@ -174,7 +174,7 @@ library FlapperInit {
         dss.chainlog.setAddress(cfg.chainlogKey, farm_);
     }
 
-    function initSplitter(        
+    function initSplitter(
         DssInstance      memory dss,
         SplitterInstance memory splitterInstance,
         SplitterConfig   memory cfg
