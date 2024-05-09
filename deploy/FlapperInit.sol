@@ -58,7 +58,7 @@ interface SplitterLike {
     function live() external view returns (uint256);
     function vat() external view returns (address);
     function daiJoin() external view returns (address);
-    function farm() external view returns (address);
+    function hop() external view returns (uint256);
     function rely(address) external;
     function file(bytes32, uint256) external;
     function file(bytes32, address) external;
@@ -80,12 +80,19 @@ struct FlapperUniV2Config {
     bytes32 chainlogKey;
 }
 
+struct FarmConfig {
+    address splitter;
+    address daiJoin;
+    uint256 hop;
+    bytes32 prevChainlogKey;
+    bytes32 chainlogKey;
+}
+
 struct SplitterConfig {
     uint256 hump;
     uint256 bump;
     uint256 hop;
     uint256 burn;
-    address farm;
     address daiJoin;
     bytes32 splitterChainlogKey;
     bytes32 prevMomChainlogKey;
@@ -143,22 +150,43 @@ library FlapperInit {
         dss.chainlog.setAddress(clKey, wrapper_);
     }
 
-    function initSplitter(        
+    function setFarm(
+        DssInstance memory dss,
+        address            farm_,
+        FarmConfig  memory cfg
+    ) internal {
+        FarmLike     farm     = FarmLike(farm_);
+        SplitterLike splitter = SplitterLike(cfg.splitter);
+
+        require(farm.rewardsToken() == DaiJoinLike(cfg.daiJoin).dai(), "Farm rewards not dai");
+        // Staking token is checked in the Lockstake script
+
+        // The following two checks enforce the initSplitter function has to be called first
+        require(cfg.hop >= 5 minutes, "hop too low");
+        require(cfg.hop == splitter.hop(), "hop mismatch");
+
+        splitter.file("farm", farm_);
+
+        farm.setRewardsDistribution(cfg.splitter);
+        farm.setRewardsDuration(cfg.hop);
+
+        if (cfg.prevChainlogKey != bytes32(0)) dss.chainlog.removeAddress(cfg.prevChainlogKey);
+        dss.chainlog.setAddress(cfg.chainlogKey, farm_);
+    }
+
+    function initSplitter(
         DssInstance      memory dss,
         SplitterInstance memory splitterInstance,
         SplitterConfig   memory cfg
     ) internal {
         SplitterLike    splitter = SplitterLike(splitterInstance.splitter);
         SplitterMomLike mom      = SplitterMomLike(splitterInstance.mom);
-        FarmLike        farm     = FarmLike(cfg.farm);
 
         // Sanity checks
         require(splitter.live()     == 1,                              "Splitter not live");
         require(splitter.vat()      == address(dss.vat),               "Splitter vat mismatch");
         require(splitter.daiJoin()  == cfg.daiJoin,                    "Splitter daiJoin mismatch");
-        require(splitter.farm()     == cfg.farm,                       "Splitter farm mismatch");
         require(mom.splitter()      == splitterInstance.splitter,      "Mom splitter mismatch");
-        require(farm.rewardsToken() == DaiJoinLike(cfg.daiJoin).dai(), "Farm rewards not dai");
 
         require(cfg.hump > 0,         "hump too low");
         require(cfg.bump % RAY == 0,  "bump not multiple of RAY");
@@ -169,9 +197,6 @@ library FlapperInit {
         splitter.file("burn", cfg.burn);
         splitter.rely(address(mom));
         splitter.rely(address(dss.vow));
-
-        farm.setRewardsDistribution(splitterInstance.splitter);
-        farm.setRewardsDuration(cfg.hop);
 
         dss.vow.file("flapper", splitterInstance.splitter);
         dss.vow.file("hump", cfg.hump);

@@ -21,7 +21,7 @@ import "dss-test/DssTest.sol";
 import { DssInstance, MCD } from "dss-test/MCD.sol";
 import { SplitterInstance } from "deploy/SplitterInstance.sol";
 import { FlapperDeploy } from "deploy/FlapperDeploy.sol";
-import { SplitterConfig, FlapperUniV2Config, FlapperInit } from "deploy/FlapperInit.sol";
+import { SplitterConfig, FlapperUniV2Config, FarmConfig, FlapperInit } from "deploy/FlapperInit.sol";
 import { SplitterMom } from "src/SplitterMom.sol";
 import { Splitter } from "src/Splitter.sol";
 import { StakingRewardsMock } from "test/mocks/StakingRewardsMock.sol";
@@ -72,8 +72,7 @@ contract SplitterMomTest is DssTest {
         SplitterInstance memory splitterInstance = FlapperDeploy.deploySplitter({
             deployer: address(this),
             owner:    PAUSE_PROXY,
-            daiJoin:  DAI_JOIN,
-            farm:     farm
+            daiJoin:  DAI_JOIN
         });
         splitter = Splitter(splitterInstance.splitter);
         mom = SplitterMom(splitterInstance.mom);
@@ -96,7 +95,6 @@ contract SplitterMomTest is DssTest {
             hop:                 5 minutes,
             burn:                WAD,
             daiJoin:             DAI_JOIN,
-            farm:                farm,
             splitterChainlogKey: "MCD_FLAP_SPLIT",
             prevMomChainlogKey:  "FLAPPER_MOM",
             momChainlogKey:      "SPLITTER_MOM"
@@ -110,11 +108,19 @@ contract SplitterMomTest is DssTest {
             prevChainlogKey: "MCD_FLAP",
             chainlogKey:     "MCD_FLAP_LP"
         });
+        FarmConfig memory farmCfg = FarmConfig({
+            splitter:        address(splitter),
+            daiJoin:         DAI_JOIN,
+            hop:             5 minutes,
+            prevChainlogKey: bytes32(0),
+            chainlogKey:     "MCD_FARM_NST"
+        });
         DssInstance memory dss = MCD.loadFromChainlog(LOG);
 
         vm.startPrank(PAUSE_PROXY);
         FlapperInit.initSplitter(dss, splitterInstance, splitterCfg);
         FlapperInit.initFlapperUniV2(dss, flapper, flapperCfg);
+        FlapperInit.setFarm(dss, farm, farmCfg);
         vm.stopPrank();
 
         vm.expectRevert("dss-chain-log/invalid-key");
