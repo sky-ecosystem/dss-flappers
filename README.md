@@ -10,7 +10,7 @@ Configurable Parameters:
 * `burn` - The percentage of the `vow.bump` to be moved to the underlying `flapper`. For example, a value of 0.70 \* `WAD` corresponds to funneling 70% of the `DAI` to the burn engine.
 * `hop` - Minimum seconds interval between kicks.
 * `flapper` - The underlying burner strategy (e.g. the address of `FlapperUniV2SwapOnly`).
-* `farm` - The staking rewards contract receiving DAI rewards.
+* `farm` - The staking rewards contract receiving the rewards.
 
 ### FlapperUniV2
 
