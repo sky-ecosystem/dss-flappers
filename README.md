@@ -43,3 +43,8 @@ Allows for scaling down an oracle price by a certain value. This can be useful w
 ### General Note:
 
 * Availability and accounting of the withdrawn `DAI` is the responsibility of the `vow`. At the time of a `kick`, the `vow` is expected to hold at least the drawn amount (`vow.bump`) over the configured flapping threshold (`vow.hump`).
+
+## Sherlock Contest:
+
+You can find general (and particular for this repository) scope, definitions, rules, disclaimers and known issues that apply to the Sherlock contest [here](https://github.com/makerdao/sherlock-contest/blob/master/README.md).
+Content listed there should be regarded as if it was in this readme.
