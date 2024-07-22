@@ -22,7 +22,7 @@ import { SplitterInstance } from "./SplitterInstance.sol";
 interface FlapperUniV2Like {
     function pip() external view returns (address);
     function spotter() external view returns (address);
-    function dai() external view returns (address);
+    function nst() external view returns (address);
     function gem() external view returns (address);
     function receiver() external view returns (address);
     function pair() external view returns (address);
@@ -50,14 +50,14 @@ interface PairLike {
     function token1() external view returns (address);
 }
 
-interface DaiJoinLike {
-    function dai() external view returns (address);
+interface NstJoinLike {
+    function dai() external view returns (address); // TODO: Replace when new join is ready by the new getter
 }
 
 interface SplitterLike {
     function live() external view returns (uint256);
     function vat() external view returns (address);
-    function daiJoin() external view returns (address);
+    function nstJoin() external view returns (address);
     function hop() external view returns (uint256);
     function rely(address) external;
     function file(bytes32, uint256) external;
@@ -74,7 +74,7 @@ struct FlapperUniV2Config {
     uint256 want;
     address pip;
     address pair;
-    address dai;
+    address nst;
     address splitter;
     bytes32 prevChainlogKey;
     bytes32 chainlogKey;
@@ -82,7 +82,7 @@ struct FlapperUniV2Config {
 
 struct FarmConfig {
     address splitter;
-    address daiJoin;
+    address nstJoin;
     uint256 hop;
     bytes32 prevChainlogKey;
     bytes32 chainlogKey;
@@ -93,7 +93,7 @@ struct SplitterConfig {
     uint256 bump;
     uint256 hop;
     uint256 burn;
-    address daiJoin;
+    address nstJoin;
     bytes32 splitterChainlogKey;
     bytes32 prevMomChainlogKey;
     bytes32 momChainlogKey;
@@ -112,14 +112,14 @@ library FlapperInit {
 
         // Sanity checks
         require(flapper.spotter()  == address(dss.spotter),                       "Flapper spotter mismatch");
-        require(flapper.dai()      == cfg.dai,                                    "Flapper dai mismatch");
+        require(flapper.nst()      == cfg.nst,                                    "Flapper nst mismatch");
         require(flapper.pair()     == cfg.pair,                                   "Flapper pair mismatch");
         require(flapper.receiver() == dss.chainlog.getAddress("MCD_PAUSE_PROXY"), "Flapper receiver mismatch");
 
         PairLike pair = PairLike(flapper.pair());
-        (address pairDai, address pairGem) = pair.token0() == cfg.dai ? (pair.token0(), pair.token1())
+        (address pairDai, address pairGem) = pair.token0() == cfg.nst ? (pair.token0(), pair.token1())
                                                                       : (pair.token1(), pair.token0());
-        require(pairDai == cfg.dai,       "Dai mismatch");
+        require(pairDai == cfg.nst,       "Dai mismatch");
         require(pairGem == flapper.gem(), "Gem mismatch");
 
         require(cfg.want >= WAD * 90 / 100, "want too low");
@@ -158,7 +158,7 @@ library FlapperInit {
         FarmLike     farm     = FarmLike(farm_);
         SplitterLike splitter = SplitterLike(cfg.splitter);
 
-        require(farm.rewardsToken() == DaiJoinLike(cfg.daiJoin).dai(), "Farm rewards not dai");
+        require(farm.rewardsToken() == NstJoinLike(cfg.nstJoin).dai(), "Farm rewards not nst");
         // Staking token is checked in the Lockstake script
 
         // The following two checks enforce the initSplitter function has to be called first
@@ -185,7 +185,7 @@ library FlapperInit {
         // Sanity checks
         require(splitter.live()     == 1,                              "Splitter not live");
         require(splitter.vat()      == address(dss.vat),               "Splitter vat mismatch");
-        require(splitter.daiJoin()  == cfg.daiJoin,                    "Splitter daiJoin mismatch");
+        require(splitter.nstJoin()  == cfg.nstJoin,                    "Splitter nstJoin mismatch");
         require(mom.splitter()      == splitterInstance.splitter,      "Mom splitter mismatch");
 
         require(cfg.hump > 0,         "hump too low");

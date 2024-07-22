@@ -4,17 +4,17 @@ Implementations of MakerDAO surplus auctions, triggered on `vow.flap`.
 
 ### Splitter
 
-Exposes a `kick` operation to be triggered periodically. Its logic withdraws `DAI` from the `vow` and splits it in two parts. The first part (`burn`) is sent to the underlying `flapper` contract to be processed by the burn engine. The second part (`WAD - burn`) is distributed as reward to a `farm` contract. The `kick` cadence is determined by the `hop` value.
+Exposes a `kick` operation to be triggered periodically. Its logic withdraws `NST` from the `vow` and splits it in two parts. The first part (`burn`) is sent to the underlying `flapper` contract to be processed by the burn engine. The second part (`WAD - burn`) is distributed as reward to a `farm` contract. The `kick` cadence is determined by the `hop` value.
 
 Configurable Parameters:
-* `burn` - The percentage of the `vow.bump` to be moved to the underlying `flapper`. For example, a value of 0.70 \* `WAD` corresponds to funneling 70% of the `DAI` to the burn engine.
+* `burn` - The percentage of the `vow.bump` to be moved to the underlying `flapper`. For example, a value of 0.70 \* `WAD` corresponds to funneling 70% of the `NST` to the burn engine.
 * `hop` - Minimum seconds interval between kicks.
 * `flapper` - The underlying burner strategy (e.g. the address of `FlapperUniV2SwapOnly`).
 * `farm` - The staking rewards contract receiving the rewards.
 
 ### FlapperUniV2
 
-Exposes an `exec` operation to be triggered periodically by the `Splitter` (at a cadence determined by `Splitter.hop()`). Its logic withdraws `DAI` from the `Splitter` and buys `gem` tokens on Uniswap v2. The acquired tokens, along with a proportional amount of `DAI` (saved from the initial withdraw) are deposited back into the liquidity pool. Finally, the minted LP tokens are sent to a predefined `receiver` address.
+Exposes an `exec` operation to be triggered periodically by the `Splitter` (at a cadence determined by `Splitter.hop()`). Its logic withdraws `NST` from the `Splitter` and buys `gem` tokens on Uniswap v2. The acquired tokens, along with a proportional amount of `NST` (saved from the initial withdraw) are deposited back into the liquidity pool. Finally, the minted LP tokens are sent to a predefined `receiver` address.
 
 Configurable Parameters:
 * `pip` - A reference price oracle, used for bounding the exchange rate of the swap.
@@ -26,7 +26,7 @@ Configurable Parameters:
 
 ### FlapperUniV2SwapOnly
 
-Exposes an `exec` operation to be triggered periodically by the `Splitter` (at a cadence determined by `Splitter.hop()`). Its logic withdraws `DAI` from the `Splitter` and buys `gem` tokens on Uniswap v2. The acquired tokens are sent to a predefined `receiver` address.
+Exposes an `exec` operation to be triggered periodically by the `Splitter` (at a cadence determined by `Splitter.hop()`). Its logic withdraws `NST` from the `Splitter` and buys `gem` tokens on Uniswap v2. The acquired tokens are sent to a predefined `receiver` address.
 
 Configurable Parameters:
 * `pip` - A reference price oracle, used for bounding the exchange rate of the swap.
@@ -42,4 +42,4 @@ Allows for scaling down an oracle price by a certain value. This can be useful w
 
 ### General Note:
 
-* Availability and accounting of the withdrawn `DAI` is the responsibility of the `vow`. At the time of a `kick`, the `vow` is expected to hold at least the drawn amount (`vow.bump`) over the configured flapping threshold (`vow.hump`).
+* Availability and accounting of the withdrawn `NST` is the responsibility of the `vow`. At the time of a `kick`, the `vow` is expected to hold at least the drawn amount (`vow.bump`) over the configured flapping threshold (`vow.hump`).

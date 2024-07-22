@@ -49,12 +49,12 @@ contract FlapperUniV2 {
                           //              For example: 0.98 * WAD allows 2% worse price than the reference.
 
     SpotterLike public immutable spotter;
-    address     public immutable dai;
+    address     public immutable nst;
     address     public immutable gem;
     address     public immutable receiver;
 
     PairLike    public immutable pair;
-    bool        public immutable daiFirst;
+    bool        public immutable nstFirst;
 
     event Rely(address indexed usr);
     event Deny(address indexed usr);
@@ -64,19 +64,19 @@ contract FlapperUniV2 {
 
     constructor(
         address _spotter,
-        address _dai,
+        address _nst,
         address _gem,
         address _pair,
         address _receiver
     ) {
         spotter = SpotterLike(_spotter);
 
-        dai = _dai;
+        nst = _nst;
         gem = _gem;
         require(GemLike(gem).decimals() == 18, "FlapperUniV2/gem-decimals-not-18");
 
         pair     = PairLike(_pair);
-        daiFirst = pair.token0() == dai;
+        nstFirst = pair.token0() == nst;
         receiver = _receiver;
 
         wards[msg.sender] = 1;
@@ -111,13 +111,13 @@ contract FlapperUniV2 {
 
     function _getReserves() internal returns (uint256 reserveDai, uint256 reserveGem) {
         (uint256 _reserveA, uint256 _reserveB,) = pair.getReserves();
-        (reserveDai, reserveGem) = daiFirst ? (_reserveA, _reserveB) : (_reserveB, _reserveA);
+        (reserveDai, reserveGem) = nstFirst ? (_reserveA, _reserveB) : (_reserveB, _reserveA);
 
-        uint256 _daiBalance = GemLike(dai).balanceOf(address(pair));
+        uint256 _nstBalance = GemLike(nst).balanceOf(address(pair));
         uint256 _gemBalance = GemLike(gem).balanceOf(address(pair));
-        if (_daiBalance > reserveDai || _gemBalance > reserveGem) {
+        if (_nstBalance > reserveDai || _gemBalance > reserveGem) {
             pair.sync();
-            (reserveDai, reserveGem) = (_daiBalance, _gemBalance);
+            (reserveDai, reserveGem) = (_nstBalance, _gemBalance);
         }
     }
 
@@ -149,13 +149,13 @@ contract FlapperUniV2 {
         //
 
         // Swap
-        GemLike(dai).transfer(address(pair), _sell);
-        (uint256 _amt0Out, uint256 _amt1Out) = daiFirst ? (uint256(0), _buy) : (_buy, uint256(0));
+        GemLike(nst).transfer(address(pair), _sell);
+        (uint256 _amt0Out, uint256 _amt1Out) = nstFirst ? (uint256(0), _buy) : (_buy, uint256(0));
         pair.swap(_amt0Out, _amt1Out, address(this), new bytes(0));
         //
 
         // Deposit
-        GemLike(dai).transfer(address(pair), lot - _sell);
+        GemLike(nst).transfer(address(pair), lot - _sell);
         GemLike(gem).transfer(address(pair), _buy);
         uint256 _liquidity = pair.mint(receiver);
         //

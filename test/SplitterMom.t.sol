@@ -41,17 +41,17 @@ contract SplitterMomTest is DssTest {
     Splitter    splitter;
     SplitterMom mom;
 
-    address DAI_JOIN;
+    address NST_JOIN;
     address SPOT;
     address VOW;
-    address DAI;
-    address MKR;
+    address NST;
+    address NGT;
     address PAUSE_PROXY;
     ChiefLike chief;
 
     address constant  LOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
-    address constant UNIV2_DAI_MKR_PAIR = 0x517F9dD285e75b599234F7221227339478d0FcC8;
+    address constant UNIV2_NST_NGT_PAIR = 0x517F9dD285e75b599234F7221227339478d0FcC8; // TODO: Replace by new pool
 
     event SetOwner(address indexed _owner);
     event SetAuthority(address indexed _authority);
@@ -60,19 +60,19 @@ contract SplitterMomTest is DssTest {
     function setUp() public {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
 
-        DAI_JOIN          = ChainlogLike(LOG).getAddress("MCD_JOIN_DAI");
+        NST_JOIN          = ChainlogLike(LOG).getAddress("MCD_JOIN_DAI"); // TODO: Replace by new join
         SPOT              = ChainlogLike(LOG).getAddress("MCD_SPOT");
-        DAI               = ChainlogLike(LOG).getAddress("MCD_DAI");
+        NST               = ChainlogLike(LOG).getAddress("MCD_DAI"); // TODO: Replace by new token
         VOW               = ChainlogLike(LOG).getAddress("MCD_VOW");
-        MKR               = ChainlogLike(LOG).getAddress("MCD_GOV");
+        NGT               = ChainlogLike(LOG).getAddress("MCD_GOV"); // TODO: Replace by new token
         PAUSE_PROXY       = ChainlogLike(LOG).getAddress("MCD_PAUSE_PROXY");
         chief             = ChiefLike(ChainlogLike(LOG).getAddress("MCD_ADM"));
 
-        address farm = address(new StakingRewardsMock(PAUSE_PROXY, address(0), DAI, address(new GemMock(1_000_000 ether))));
+        address farm = address(new StakingRewardsMock(PAUSE_PROXY, address(0), NST, address(new GemMock(1_000_000 ether))));
         SplitterInstance memory splitterInstance = FlapperDeploy.deploySplitter({
             deployer: address(this),
             owner:    PAUSE_PROXY,
-            daiJoin:  DAI_JOIN
+            nstJoin:  NST_JOIN
         });
         splitter = Splitter(splitterInstance.splitter);
         mom = SplitterMom(splitterInstance.mom);
@@ -81,9 +81,9 @@ contract SplitterMomTest is DssTest {
             deployer: address(this),
             owner:    PAUSE_PROXY,
             spotter:  SPOT,
-            dai:      DAI,
-            gem:      MKR,
-            pair:     UNIV2_DAI_MKR_PAIR,
+            nst:      NST,
+            gem:      NGT,
+            pair:     UNIV2_NST_NGT_PAIR,
             receiver: PAUSE_PROXY,
             swapOnly: false
         });
@@ -94,7 +94,7 @@ contract SplitterMomTest is DssTest {
             bump:                0,
             hop:                 5 minutes,
             burn:                WAD,
-            daiJoin:             DAI_JOIN,
+            nstJoin:             NST_JOIN,
             splitterChainlogKey: "MCD_FLAP_SPLIT",
             prevMomChainlogKey:  "FLAPPER_MOM",
             momChainlogKey:      "SPLITTER_MOM"
@@ -102,15 +102,15 @@ contract SplitterMomTest is DssTest {
         FlapperUniV2Config memory flapperCfg = FlapperUniV2Config({
             want:            1e18,
             pip:             address(0),
-            pair:            UNIV2_DAI_MKR_PAIR,
-            dai:             DAI,
+            pair:            UNIV2_NST_NGT_PAIR,
+            nst:             NST,
             splitter:        address(splitter),
             prevChainlogKey: "MCD_FLAP",
             chainlogKey:     "MCD_FLAP_LP"
         });
         FarmConfig memory farmCfg = FarmConfig({
             splitter:        address(splitter),
-            daiJoin:         DAI_JOIN,
+            nstJoin:         NST_JOIN,
             hop:             5 minutes,
             prevChainlogKey: bytes32(0),
             chainlogKey:     "MCD_FARM_NST"

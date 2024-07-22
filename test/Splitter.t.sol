@@ -77,10 +77,10 @@ contract SplitterTest is DssTest {
     FlapperUniV2SwapOnly public flapper;
     PipLike              public medianizer;
 
-    address     DAI_JOIN;
+    address     NST_JOIN;
     address     SPOT;
-    address     DAI;
-    address     MKR;
+    address     NST;
+    address     NGT;
     address     PAUSE_PROXY;
 
     VatLike     vat;
@@ -89,7 +89,7 @@ contract SplitterTest is DssTest {
 
     address constant LOG                 = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
     address constant UNIV2_FACTORY       = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
-    address constant UNIV2_DAI_MKR_PAIR  = 0x517F9dD285e75b599234F7221227339478d0FcC8;
+    address constant UNIV2_NST_NGT_PAIR  = 0x517F9dD285e75b599234F7221227339478d0FcC8; // TODO: Replace by new pool
 
     event Kick(uint256 tot, uint256 lot, uint256 pay);
     event Cage(uint256 rad);
@@ -97,12 +97,12 @@ contract SplitterTest is DssTest {
     function setUp() public {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
 
-        DAI_JOIN      = ChainlogLike(LOG).getAddress("MCD_JOIN_DAI");
+        NST_JOIN      = ChainlogLike(LOG).getAddress("MCD_JOIN_DAI"); // TODO: Replace by new join
         SPOT          = ChainlogLike(LOG).getAddress("MCD_SPOT");
-        DAI           = ChainlogLike(LOG).getAddress("MCD_DAI");
-        MKR           = ChainlogLike(LOG).getAddress("MCD_GOV");
+        NST           = ChainlogLike(LOG).getAddress("MCD_DAI"); // TODO: Replace by new token
+        NGT           = ChainlogLike(LOG).getAddress("MCD_GOV"); // TODO: Replace by new token
         PAUSE_PROXY   = ChainlogLike(LOG).getAddress("MCD_PAUSE_PROXY");
-        medianizer    = PipLike(ChainlogLike(LOG).getAddress("PIP_MKR"));
+        medianizer    = PipLike(ChainlogLike(LOG).getAddress("PIP_MKR")); // TODO: eventually wrap it with OracleWrapper
         vat           = VatLike(ChainlogLike(LOG).getAddress("MCD_VAT"));
         vow           = VowLike(ChainlogLike(LOG).getAddress("MCD_VOW"));
         end           = EndLike(ChainlogLike(LOG).getAddress("MCD_END"));
@@ -111,14 +111,14 @@ contract SplitterTest is DssTest {
 
         medianizer.kiss(address(this));
 
-        farm = new StakingRewardsMock(PAUSE_PROXY, address(0), DAI, address(new GemMock(1_000_000 ether)));
+        farm = new StakingRewardsMock(PAUSE_PROXY, address(0), NST, address(new GemMock(1_000_000 ether)));
 
         vm.stopPrank();
 
         SplitterInstance memory splitterInstance = FlapperDeploy.deploySplitter({
             deployer: address(this),
             owner:    PAUSE_PROXY,
-            daiJoin:  DAI_JOIN
+            nstJoin:  NST_JOIN
         });
         splitter = Splitter(splitterInstance.splitter);
 
@@ -126,9 +126,9 @@ contract SplitterTest is DssTest {
             deployer: address(this),
             owner:    PAUSE_PROXY,
             spotter:  SPOT,
-            dai:      DAI,
-            gem:      MKR,
-            pair:     UNIV2_DAI_MKR_PAIR,
+            nst:      NST,
+            gem:      NGT,
+            pair:     UNIV2_NST_NGT_PAIR,
             receiver: PAUSE_PROXY,
             swapOnly: true
         }));
@@ -141,7 +141,7 @@ contract SplitterTest is DssTest {
             bump:                5707 * RAD,
             hop:                 30 minutes,
             burn:                70 * WAD / 100,
-            daiJoin:             DAI_JOIN,
+            nstJoin:             NST_JOIN,
             splitterChainlogKey: "MCD_FLAP_SPLIT",
             prevMomChainlogKey:  "FLAPPER_MOM",
             momChainlogKey:      "SPLITTER_MOM"
@@ -149,15 +149,15 @@ contract SplitterTest is DssTest {
         FlapperUniV2Config memory flapperCfg = FlapperUniV2Config({
             want:            WAD * 97 / 100,
             pip:             address(medianizer),
-            pair:            UNIV2_DAI_MKR_PAIR,
-            dai:             DAI,
+            pair:            UNIV2_NST_NGT_PAIR,
+            nst:             NST,
             splitter:        address(splitter),
             prevChainlogKey: bytes32(0),
             chainlogKey:     "MCD_FLAP_BURN"
         });
         FarmConfig memory farmCfg = FarmConfig({
             splitter:        address(splitter),
-            daiJoin:         DAI_JOIN,
+            nstJoin:         NST_JOIN,
             hop:             30 minutes,
             prevChainlogKey: bytes32(0),
             chainlogKey:     "MCD_FARM_NST"
@@ -175,17 +175,17 @@ contract SplitterTest is DssTest {
         assertEq(dss.chainlog.getAddress("MCD_FARM_NST"), address(farm));
 
         // Add initial liquidity if needed
-        (uint256 reserveDai, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, DAI, MKR);
+        (uint256 reserveDai, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, NGT);
         uint256 minimalDaiReserve = 280_000 * WAD;
         if (reserveDai < minimalDaiReserve) {
             changeMedianizerPrice(727 * WAD);
-            changeUniV2Price(medianizer.read(), MKR, UNIV2_DAI_MKR_PAIR);
-            (reserveDai, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, DAI, MKR);
+            changeUniV2Price(medianizer.read(), NGT, UNIV2_NST_NGT_PAIR);
+            (reserveDai, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, NGT);
             if(reserveDai < minimalDaiReserve) {
-                topUpLiquidity(minimalDaiReserve - reserveDai, MKR, UNIV2_DAI_MKR_PAIR);
+                topUpLiquidity(minimalDaiReserve - reserveDai, NGT, UNIV2_NST_NGT_PAIR);
             }
         } else {
-            changeMedianizerPrice(uniV2DaiForGem(WAD, MKR));
+            changeMedianizerPrice(uniV2DaiForGem(WAD, NGT));
         }
 
         // Create additional surplus if needed
@@ -207,40 +207,40 @@ contract SplitterTest is DssTest {
     }
 
     function uniV2GemForDai(uint256 amountIn, address gem) internal view returns (uint256 amountOut) {
-        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, DAI, gem);
+        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
         amountOut = UniswapV2Library.getAmountOut(amountIn, reserveDai, reserveGem);
     }
 
     function uniV2DaiForGem(uint256 amountIn, address gem) internal view returns (uint256 amountOut) {
-        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, DAI, gem);
+        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
         return UniswapV2Library.getAmountOut(amountIn, reserveGem, reserveDai);
     }
 
-    function changeUniV2Price(uint256 daiForGem, address gem, address pair) internal {
-        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, DAI, gem);
+    function changeUniV2Price(uint256 nstForGem, address gem, address pair) internal {
+        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
         uint256 currentDaiForGem = reserveDai * WAD / reserveGem;
 
-        // neededReserveDai * WAD / neededReserveMkr = daiForGem;
-        if (currentDaiForGem > daiForGem) {
-            deal(gem, pair, reserveDai * WAD / daiForGem);
+        // neededReserveDai * WAD / neededReserveMkr = nstForGem;
+        if (currentDaiForGem > nstForGem) {
+            deal(gem, pair, reserveDai * WAD / nstForGem);
         } else {
-            deal(DAI, pair, reserveGem * daiForGem / WAD);
+            deal(NST, pair, reserveGem * nstForGem / WAD);
         }
         PairLike(pair).sync();
     }
 
-    function changeMedianizerPrice(uint256 daiForGem) internal {
-        vm.store(address(medianizer), bytes32(uint256(1)), bytes32(block.timestamp << 128 | daiForGem));
+    function changeMedianizerPrice(uint256 nstForGem) internal {
+        vm.store(address(medianizer), bytes32(uint256(1)), bytes32(block.timestamp << 128 | nstForGem));
     }
 
-    function topUpLiquidity(uint256 daiAmt, address gem, address pair) internal {
-        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, DAI, gem);
-        uint256 gemAmt = UniswapV2Library.quote(daiAmt, reserveDai, reserveGem);
+    function topUpLiquidity(uint256 nstAmt, address gem, address pair) internal {
+        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
+        uint256 gemAmt = UniswapV2Library.quote(nstAmt, reserveDai, reserveGem);
 
-        deal(DAI, address(this), GemLike(DAI).balanceOf(address(this)) + daiAmt);
+        deal(NST, address(this), GemLike(NST).balanceOf(address(this)) + nstAmt);
         deal(gem, address(this), GemLike(gem).balanceOf(address(this)) + gemAmt);
 
-        GemLike(DAI).transfer(pair, daiAmt);
+        GemLike(NST).transfer(pair, nstAmt);
         GemLike(gem).transfer(pair, gemAmt);
         uint256 liquidity = PairLike(pair).mint(address(this));
         assertGt(liquidity, 0);
@@ -256,11 +256,11 @@ contract SplitterTest is DssTest {
 
     function doKick() internal {
         uint256 initialVowVatDai = vat.dai(address(vow));
-        uint256 initialDaiJoinVatDai = vat.dai(DAI_JOIN);
-        uint256 initialMkr = GemLike(MKR).balanceOf(address(PAUSE_PROXY));
-        uint256 initialReserveDai = GemLike(DAI).balanceOf(UNIV2_DAI_MKR_PAIR);
-        uint256 initialReserveMkr = GemLike(MKR).balanceOf(UNIV2_DAI_MKR_PAIR);
-        uint256 initialFarmDai = GemLike(DAI).balanceOf(address(farm));
+        uint256 initialDaiJoinVatDai = vat.dai(NST_JOIN);
+        uint256 initialMkr = GemLike(NGT).balanceOf(address(PAUSE_PROXY));
+        uint256 initialReserveDai = GemLike(NST).balanceOf(UNIV2_NST_NGT_PAIR);
+        uint256 initialReserveMkr = GemLike(NGT).balanceOf(UNIV2_NST_NGT_PAIR);
+        uint256 initialFarmDai = GemLike(NST).balanceOf(address(farm));
         uint256 prevRewardRate = farm.rewardRate();
         uint256 farmLeftover = block.timestamp >= farm.periodFinish() ? 0 : farm.rewardRate() * (farm.periodFinish() - block.timestamp);
         uint256 farmReward = vow.bump() * (WAD - splitter.burn()) / RAD;
@@ -271,19 +271,19 @@ contract SplitterTest is DssTest {
         vow.flap();
 
         assertEq(vat.dai(address(vow)), initialVowVatDai - vow.bump());
-        assertEq(vat.dai(DAI_JOIN), initialDaiJoinVatDai + vow.bump());
+        assertEq(vat.dai(NST_JOIN), initialDaiJoinVatDai + vow.bump());
         assertEq(vat.dai(address(splitter)), 0);
 
-        assertEq(GemLike(DAI).balanceOf(UNIV2_DAI_MKR_PAIR), initialReserveDai + vow.bump() * splitter.burn() / RAD);
+        assertEq(GemLike(NST).balanceOf(UNIV2_NST_NGT_PAIR), initialReserveDai + vow.bump() * splitter.burn() / RAD);
         if (splitter.burn() == 0) {
-            assertEq(GemLike(MKR).balanceOf(UNIV2_DAI_MKR_PAIR), initialReserveMkr);
-            assertEq(GemLike(MKR).balanceOf(address(PAUSE_PROXY)), initialMkr);
+            assertEq(GemLike(NGT).balanceOf(UNIV2_NST_NGT_PAIR), initialReserveMkr);
+            assertEq(GemLike(NGT).balanceOf(address(PAUSE_PROXY)), initialMkr);
         } else {
-            assertLt(GemLike(MKR).balanceOf(UNIV2_DAI_MKR_PAIR), initialReserveMkr);
-            assertGt(GemLike(MKR).balanceOf(address(PAUSE_PROXY)), initialMkr);
+            assertLt(GemLike(NGT).balanceOf(UNIV2_NST_NGT_PAIR), initialReserveMkr);
+            assertGt(GemLike(NGT).balanceOf(address(PAUSE_PROXY)), initialMkr);
         }
 
-        assertEq(GemLike(DAI).balanceOf(address(farm)), initialFarmDai + farmReward);
+        assertEq(GemLike(NST).balanceOf(address(farm)), initialFarmDai + farmReward);
         if (splitter.burn() == WAD) {
             assertEq(farm.rewardRate(), prevRewardRate);
             assertEq(farm.lastUpdateTime(), prevLastUpdateTime); 
@@ -296,11 +296,11 @@ contract SplitterTest is DssTest {
     function testConstructor() public {
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
-        Splitter s = new Splitter(DAI_JOIN);
+        Splitter s = new Splitter(NST_JOIN);
 
         assertEq(s.hop(), 1 hours);
         assertEq(s.zzz(), 0);
-        assertEq(address(s.daiJoin()),  DAI_JOIN);
+        assertEq(address(s.nstJoin()),  NST_JOIN);
         assertEq(address(s.vat()), address(vat));
         assertEq(address(s.farm()), address(0));
         assertEq(s.wards(address(this)), 1);
@@ -349,7 +349,7 @@ contract SplitterTest is DssTest {
         vm.warp(block.timestamp + splitter.hop());
 
         // make sure the slippage of the first kick doesn't block us
-        uint256 _marginalWant = marginalWant(MKR, address(medianizer));
+        uint256 _marginalWant = marginalWant(NGT, address(medianizer));
         vm.prank(PAUSE_PROXY); flapper.file("want", _marginalWant * 99 / 100);
         doKick();
     }
@@ -359,7 +359,7 @@ contract SplitterTest is DssTest {
         vm.warp(block.timestamp + splitter.hop() - 1 seconds);
 
         // make sure the slippage of the first kick doesn't block us
-        uint256 _marginalWant = marginalWant(MKR, address(medianizer));
+        uint256 _marginalWant = marginalWant(NGT, address(medianizer));
         vm.prank(PAUSE_PROXY); flapper.file("want", _marginalWant * 99 / 100);
         vm.expectRevert("Splitter/kicked-too-soon");
         vow.flap();
@@ -372,7 +372,7 @@ contract SplitterTest is DssTest {
         vm.warp(block.timestamp + splitter.hop());
 
         // make sure the slippage of the first kick doesn't block us
-        uint256 _marginalWant = marginalWant(MKR, address(medianizer));
+        uint256 _marginalWant = marginalWant(NGT, address(medianizer));
         vm.prank(PAUSE_PROXY); flapper.file("want", _marginalWant * 99 / 100);
 
         vm.prank(PAUSE_PROXY); splitter.file("hop", type(uint256).max);
