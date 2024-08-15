@@ -109,27 +109,27 @@ contract FlapperUniV2 {
         emit File(what, data);
     }
 
-    function _getReserves() internal returns (uint256 reserveDai, uint256 reserveGem) {
+    function _getReserves() internal returns (uint256 reserveNst, uint256 reserveGem) {
         (uint256 _reserveA, uint256 _reserveB,) = pair.getReserves();
-        (reserveDai, reserveGem) = nstFirst ? (_reserveA, _reserveB) : (_reserveB, _reserveA);
+        (reserveNst, reserveGem) = nstFirst ? (_reserveA, _reserveB) : (_reserveB, _reserveA);
 
         uint256 _nstBalance = GemLike(nst).balanceOf(address(pair));
         uint256 _gemBalance = GemLike(gem).balanceOf(address(pair));
-        if (_nstBalance > reserveDai || _gemBalance > reserveGem) {
+        if (_nstBalance > reserveNst || _gemBalance > reserveGem) {
             pair.sync();
-            (reserveDai, reserveGem) = (_nstBalance, _gemBalance);
+            (reserveNst, reserveGem) = (_nstBalance, _gemBalance);
         }
     }
 
     // The Uniswap invariant needs to hold through the swap.
     // Additionally, The deposited funds need to be in the same ratio as the reserves after the swap.
     //
-    // (1)   reserveDai * reserveGem = (reserveDai + sell * 997 / 1000) * (reserveGem - bought)
-    // (2)   (lot - sell) / bought  = (reserveDai + sell) / (reserveGem - bought)
+    // (1)   reserveNst * reserveGem = (reserveNst + sell * 997 / 1000) * (reserveGem - bought)
+    // (2)   (lot - sell) / bought  = (reserveNst + sell) / (reserveGem - bought)
     //
     // The solution for the these equations for variables `sell` and `bought` is used below.
-    function _getDaiToSell(uint256 lot, uint256 reserveDai) internal pure returns (uint256 sell) {
-        sell = (Babylonian.sqrt(reserveDai * (lot * 3_988_000 + reserveDai * 3_988_009)) - reserveDai * 1997) / 1994;
+    function _getNstToSell(uint256 lot, uint256 reserveNst) internal pure returns (uint256 sell) {
+        sell = (Babylonian.sqrt(reserveNst * (lot * 3_988_000 + reserveNst * 3_988_009)) - reserveNst * 1997) / 1994;
     }
 
     // Based on: https://github.com/Uniswap/v2-periphery/blob/0335e8f7e1bd1e8d8329fd300aea2ef2f36dd19f/contracts/libraries/UniswapV2Library.sol#L43
@@ -140,11 +140,11 @@ contract FlapperUniV2 {
 
     function exec(uint256 lot) external auth {
         // Check Amounts
-        (uint256 _reserveDai, uint256 _reserveGem) = _getReserves();
+        (uint256 _reserveNst, uint256 _reserveGem) = _getReserves();
 
-        uint256 _sell = _getDaiToSell(lot, _reserveDai);
+        uint256 _sell = _getNstToSell(lot, _reserveNst);
 
-        uint256 _buy = _getAmountOut(_sell, _reserveDai, _reserveGem);
+        uint256 _buy = _getAmountOut(_sell, _reserveNst, _reserveGem);
         require(_buy >= _sell * want / (uint256(pip.read()) * RAY / spotter.par()), "FlapperUniV2/insufficient-buy-amount");
         //
 

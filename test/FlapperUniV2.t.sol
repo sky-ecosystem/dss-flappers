@@ -192,18 +192,18 @@ contract FlapperUniV2Test is DssTest {
         }
 
         // Add initial liquidity if needed
-        (uint256 reserveDai, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
-        uint256 minimalDaiReserve = 280_000 * WAD;
-        if (reserveDai < minimalDaiReserve) {
+        (uint256 reserveNst, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
+        uint256 minimalNstReserve = 280_000 * WAD;
+        if (reserveNst < minimalNstReserve) {
             _medianizer.setPrice(price);
             changeUniV2Price(price, gem, pair);
-            (reserveDai, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
-            if(reserveDai < minimalDaiReserve) {
-                topUpLiquidity(minimalDaiReserve - reserveDai, gem, pair);
+            (reserveNst, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
+            if(reserveNst < minimalNstReserve) {
+                topUpLiquidity(minimalNstReserve - reserveNst, gem, pair);
             }
         } else {
             // If there is initial liquidity, then the oracle price should be set to the current price
-            _medianizer.setPrice(uniV2DaiForGem(WAD, gem));
+            _medianizer.setPrice(uniV2NstForGem(WAD, gem));
         }
     }
 
@@ -215,23 +215,23 @@ contract FlapperUniV2Test is DssTest {
         return amountIn * WAD / (uint256(MockMedianizer(pip).read()) * RAY / spotter.par());
     }
 
-    function uniV2GemForDai(uint256 amountIn, address gem) internal view returns (uint256 amountOut) {
-        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
-        amountOut = UniswapV2Library.getAmountOut(amountIn, reserveDai, reserveGem);
+    function uniV2GemForNst(uint256 amountIn, address gem) internal view returns (uint256 amountOut) {
+        (uint256 reserveNst, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
+        amountOut = UniswapV2Library.getAmountOut(amountIn, reserveNst, reserveGem);
     }
 
-    function uniV2DaiForGem(uint256 amountIn, address gem) internal view returns (uint256 amountOut) {
-        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
-        return UniswapV2Library.getAmountOut(amountIn, reserveGem, reserveDai);
+    function uniV2NstForGem(uint256 amountIn, address gem) internal view returns (uint256 amountOut) {
+        (uint256 reserveNst, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
+        return UniswapV2Library.getAmountOut(amountIn, reserveGem, reserveNst);
     }
 
     function changeUniV2Price(uint256 nstForGem, address gem, address pair) internal {
-        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
-        uint256 currentDaiForGem = reserveDai * WAD / reserveGem;
+        (uint256 reserveNst, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
+        uint256 currentNstForGem = reserveNst * WAD / reserveGem;
 
-        // neededReserveDai * WAD / neededReserveMkr = nstForGem;
-        if (currentDaiForGem > nstForGem) {
-            deal(gem, pair, reserveDai * WAD / nstForGem);
+        // neededReserveNst * WAD / neededReserveMkr = nstForGem;
+        if (currentNstForGem > nstForGem) {
+            deal(gem, pair, reserveNst * WAD / nstForGem);
         } else {
             deal(NST, pair, reserveGem * nstForGem / WAD);
         }
@@ -239,8 +239,8 @@ contract FlapperUniV2Test is DssTest {
     }
 
     function topUpLiquidity(uint256 nstAmt, address gem, address pair) internal {
-        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
-        uint256 gemAmt = UniswapV2Library.quote(nstAmt, reserveDai, reserveGem);
+        (uint256 reserveNst, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
+        uint256 gemAmt = UniswapV2Library.quote(nstAmt, reserveNst, reserveGem);
 
         deal(NST, address(this), GemLike(NST).balanceOf(address(this)) + nstAmt);
         deal(gem, address(this), GemLike(gem).balanceOf(address(this)) + gemAmt);
@@ -254,10 +254,10 @@ contract FlapperUniV2Test is DssTest {
 
     function marginalWant(address gem, address pip) internal view returns (uint256) {
         uint256 wbump = vow.bump() / RAY;
-        (uint256 reserveDai, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
-        uint256 sell = (Babylonian.sqrt(reserveDai * (wbump * 3_988_000 + reserveDai * 3_988_009)) - reserveDai * 1997) / 1994;
+        (uint256 reserveNst, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
+        uint256 sell = (Babylonian.sqrt(reserveNst * (wbump * 3_988_000 + reserveNst * 3_988_009)) - reserveNst * 1997) / 1994;
 
-        uint256 actual = uniV2GemForDai(sell, gem);
+        uint256 actual = uniV2GemForNst(sell, gem);
         uint256 ref    = refAmountOut(sell, pip);
         return actual * WAD / ref;
     }
@@ -265,7 +265,7 @@ contract FlapperUniV2Test is DssTest {
     function doExec(address _flapper, address gem, address pair) internal {
         uint256 initialLp = GemLike(pair).balanceOf(address(PAUSE_PROXY));
         uint256 initialDaiVow = vat.dai(address(vow));
-        uint256 initialReserveDai = GemLike(NST).balanceOf(pair);
+        uint256 initialReserveNst = GemLike(NST).balanceOf(pair);
         uint256 initialReserveMkr = GemLike(gem).balanceOf(pair);
 
         vm.expectEmit(false, false, false, false); // only check event signature (topic 0)
@@ -273,7 +273,7 @@ contract FlapperUniV2Test is DssTest {
         vow.flap();
 
         assertGt(GemLike(pair).balanceOf(address(PAUSE_PROXY)), initialLp);
-        assertEq(GemLike(NST).balanceOf(pair), initialReserveDai + vow.bump() / RAY);
+        assertEq(GemLike(NST).balanceOf(pair), initialReserveNst + vow.bump() / RAY);
         assertEq(GemLike(gem).balanceOf(pair), initialReserveMkr);
         assertEq(initialDaiVow - vat.dai(address(vow)), vow.bump());
         assertEq(GemLike(NST).balanceOf(address(_flapper)), 0);
@@ -315,7 +315,7 @@ contract FlapperUniV2Test is DssTest {
         doExec(address(flapper), NGT, UNIV2_NST_NGT_PAIR);
     }
 
-    function testExecDaiSecond() public {
+    function testExecNstSecond() public {
         changeFlapper(address(linkFlapper));
         doExec(address(linkFlapper), LINK, UNIV2_LINK_DAI_PAIR);
     }
@@ -333,7 +333,7 @@ contract FlapperUniV2Test is DssTest {
         vow.flap();
     }
 
-    function testExecDaiSecondWantBlocks() public {
+    function testExecNstSecondWantBlocks() public {
         changeFlapper(address(linkFlapper));
         uint256 _marginalWant = marginalWant(LINK, address(linkMedianizer));
         vm.prank(PAUSE_PROXY); linkFlapper.file("want", _marginalWant * 101 / 100);
@@ -341,7 +341,7 @@ contract FlapperUniV2Test is DssTest {
         vow.flap();
     }
 
-    function testExecDonationDai() public {
+    function testExecDonationNst() public {
         deal(NST, UNIV2_NST_NGT_PAIR, GemLike(NST).balanceOf(UNIV2_NST_NGT_PAIR) * 1005 / 1000);
         // This will now sync the reserves before the swap
         doExec(address(flapper), NGT, UNIV2_NST_NGT_PAIR);
@@ -357,10 +357,10 @@ contract FlapperUniV2Test is DssTest {
     // Based on: https://github.com/makerdao/dss-flappers/blob/da7b6b70e7cfe3631f8af695bbe0c79db90e2a20/src/FlapperUniV2.sol
     function sellLotAndDeposit(PairLike pair, address gem, bool nstFirst, address receiver, uint256 lot) internal {
         // Get Amounts
-        (uint256 _reserveDai, uint256 _reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
+        (uint256 _reserveNst, uint256 _reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, NST, gem);
         uint256 _wlot = lot / RAY;
-        uint256 _total = _wlot * (997 * _wlot + 1997 * _reserveDai) / (1000 * _reserveDai);
-        uint256 _buy = _wlot * 997 * _reserveGem / (_reserveDai * 1000 + _wlot * 997);
+        uint256 _total = _wlot * (997 * _wlot + 1997 * _reserveNst) / (1000 * _reserveNst);
+        uint256 _buy = _wlot * 997 * _reserveGem / (_reserveNst * 1000 + _wlot * 997);
 
         // Swap
         GemLike(NST).transfer(address(pair), _wlot);
@@ -377,20 +377,20 @@ contract FlapperUniV2Test is DssTest {
         deal(NST, address(this), vow.bump() * 3); // certainly enough for the sell and deposit
         GemLike(NST).approve(UNIV2_NST_NGT_PAIR, vow.bump() * 3);
 
-        uint256 initialDai = GemLike(NST).balanceOf(address(this));
+        uint256 initialNst = GemLike(NST).balanceOf(address(this));
         uint256 initialLp = GemLike(UNIV2_NST_NGT_PAIR).balanceOf(PAUSE_PROXY);
 
         uint256 initialState = vm.snapshot();
 
         // Old version
         sellLotAndDeposit(PairLike(UNIV2_NST_NGT_PAIR), NGT, true, PAUSE_PROXY, vow.bump());
-        uint256 totalDaiConsumed = initialDai - GemLike(NST).balanceOf(address(this));
+        uint256 totalNstConsumed = initialNst - GemLike(NST).balanceOf(address(this));
         uint256 boughtLpOldVersion = GemLike(UNIV2_NST_NGT_PAIR).balanceOf(PAUSE_PROXY) - initialLp;
 
         vm.revertTo(initialState);
 
         // New version
-        vm.prank(PAUSE_PROXY); vow.file("bump", totalDaiConsumed * RAY); // The current flapper gets the total vat.dai to consume.
+        vm.prank(PAUSE_PROXY); vow.file("bump", totalNstConsumed * RAY); // The current flapper gets the total vat.dai to consume.
         doExec(address(flapper), NGT, UNIV2_NST_NGT_PAIR);
         uint256 boughtLpNewVersion = GemLike(UNIV2_NST_NGT_PAIR).balanceOf(PAUSE_PROXY) - initialLp;
 

@@ -117,9 +117,9 @@ library FlapperInit {
         require(flapper.receiver() == dss.chainlog.getAddress("MCD_PAUSE_PROXY"), "Flapper receiver mismatch");
 
         PairLike pair = PairLike(flapper.pair());
-        (address pairDai, address pairGem) = pair.token0() == cfg.nst ? (pair.token0(), pair.token1())
+        (address pairNst, address pairGem) = pair.token0() == cfg.nst ? (pair.token0(), pair.token1())
                                                                       : (pair.token1(), pair.token0());
-        require(pairDai == cfg.nst,       "Dai mismatch");
+        require(pairNst == cfg.nst,       "Nst mismatch");
         require(pairGem == flapper.gem(), "Gem mismatch");
 
         require(cfg.want >= WAD * 90 / 100, "want too low");
