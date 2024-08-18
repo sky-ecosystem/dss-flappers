@@ -72,7 +72,7 @@ contract SplitterMomTest is DssTest {
         SplitterInstance memory splitterInstance = FlapperDeploy.deploySplitter({
             deployer: address(this),
             owner:    PAUSE_PROXY,
-            daiJoin:  DAI_JOIN
+            nstJoin:  DAI_JOIN
         });
         splitter = Splitter(splitterInstance.splitter);
         mom = SplitterMom(splitterInstance.mom);
@@ -81,7 +81,7 @@ contract SplitterMomTest is DssTest {
             deployer: address(this),
             owner:    PAUSE_PROXY,
             spotter:  SPOT,
-            dai:      DAI,
+            nst:      DAI,
             gem:      MKR,
             pair:     UNIV2_DAI_MKR_PAIR,
             receiver: PAUSE_PROXY,
@@ -94,7 +94,7 @@ contract SplitterMomTest is DssTest {
             bump:                0,
             hop:                 5 minutes,
             burn:                WAD,
-            daiJoin:             DAI_JOIN,
+            nstJoin:             DAI_JOIN,
             splitterChainlogKey: "MCD_FLAP_SPLIT",
             prevMomChainlogKey:  "FLAPPER_MOM",
             momChainlogKey:      "SPLITTER_MOM"
@@ -103,14 +103,14 @@ contract SplitterMomTest is DssTest {
             want:            1e18,
             pip:             address(0),
             pair:            UNIV2_DAI_MKR_PAIR,
-            dai:             DAI,
+            nst:             DAI,
             splitter:        address(splitter),
             prevChainlogKey: "MCD_FLAP",
             chainlogKey:     "MCD_FLAP_LP"
         });
         FarmConfig memory farmCfg = FarmConfig({
             splitter:        address(splitter),
-            daiJoin:         DAI_JOIN,
+            nstJoin:         DAI_JOIN,
             hop:             5 minutes,
             prevChainlogKey: bytes32(0),
             chainlogKey:     "MCD_FARM_NST"

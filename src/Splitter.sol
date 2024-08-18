@@ -21,7 +21,7 @@ interface VatLike {
     function hope(address) external;
 }
 
-interface DaiJoinLike {
+interface NstJoinLike {
     function vat() external view returns (address);
     function exit(address, uint256) external;
 }
@@ -45,7 +45,7 @@ contract Splitter {
     uint256     public           zzz;     // [Timestamp] Last kick
 
     VatLike     public immutable vat;
-    DaiJoinLike public immutable daiJoin;
+    NstJoinLike public immutable nstJoin;
 
     event Rely(address indexed usr);
     event Deny(address indexed usr);
@@ -55,12 +55,12 @@ contract Splitter {
     event Cage(uint256 rad);
 
     constructor(
-        address _daiJoin
+        address _nstJoin
     ) {
-        daiJoin = DaiJoinLike(_daiJoin);
-        vat     = VatLike(daiJoin.vat());
+        nstJoin = NstJoinLike(_nstJoin);
+        vat     = VatLike(nstJoin.vat());
         
-        vat.hope(_daiJoin);
+        vat.hope(_nstJoin);
         
         hop  = 1 hours; // Initial value for safety
 
@@ -105,13 +105,13 @@ contract Splitter {
 
         uint256 lot = tot * burn / RAD;
         if (lot > 0) {
-            DaiJoinLike(daiJoin).exit(address(flapper), lot);
+            NstJoinLike(nstJoin).exit(address(flapper), lot);
             flapper.exec(lot);
         }
 
         uint256 pay = (tot / RAY - lot);
         if (pay > 0) {
-            DaiJoinLike(daiJoin).exit(address(farm), pay);
+            NstJoinLike(nstJoin).exit(address(farm), pay);
             farm.notifyRewardAmount(pay);
         }
 

@@ -130,10 +130,10 @@ contract FlapperUniV2Test is DssTest {
         vm.stopPrank();
 
         (flapper, medianizer) = setUpFlapper(MKR, UNIV2_DAI_MKR_PAIR, 727 * WAD, "MCD_FLAP") ;
-        assertEq(flapper.daiFirst(), true);
+        assertEq(flapper.nstFirst(), true);
 
         (linkFlapper, linkMedianizer) = setUpFlapper(LINK, UNIV2_LINK_DAI_PAIR, 654 * WAD / 100, bytes32(0));
-        assertEq(linkFlapper.daiFirst(), false);
+        assertEq(linkFlapper.nstFirst(), false);
 
         changeFlapper(address(flapper)); // Use MKR flapper by default
 
@@ -162,7 +162,7 @@ contract FlapperUniV2Test is DssTest {
             deployer: address(this),
             owner:    PAUSE_PROXY,
             spotter:  SPOT,
-            dai:      DAI,
+            nst:      DAI,
             gem:      gem,
             pair:     pair,
             receiver: PAUSE_PROXY,
@@ -175,7 +175,7 @@ contract FlapperUniV2Test is DssTest {
             want:            WAD * 97 / 100,
             pip:             address(_medianizer),
             pair:            pair,
-            dai:             DAI,
+            nst:             DAI,
             splitter:        address(splitter),
             prevChainlogKey: prevChainlogKey,
             chainlogKey:     "MCD_FLAP_LP"
@@ -355,7 +355,7 @@ contract FlapperUniV2Test is DssTest {
 
     // A shortened version of the sell and deposit flapper that sells `lot`.
     // Based on: https://github.com/makerdao/dss-flappers/blob/da7b6b70e7cfe3631f8af695bbe0c79db90e2a20/src/FlapperUniV2.sol
-    function sellLotAndDeposit(PairLike pair, address gem, bool daiFirst, address receiver, uint256 lot) internal {
+    function sellLotAndDeposit(PairLike pair, address gem, bool nstFirst, address receiver, uint256 lot) internal {
         // Get Amounts
         (uint256 _reserveDai, uint256 _reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, DAI, gem);
         uint256 _wlot = lot / RAY;
@@ -364,7 +364,7 @@ contract FlapperUniV2Test is DssTest {
 
         // Swap
         GemLike(DAI).transfer(address(pair), _wlot);
-        (uint256 _amt0Out, uint256 _amt1Out) = daiFirst ? (uint256(0), _buy) : (_buy, uint256(0));
+        (uint256 _amt0Out, uint256 _amt1Out) = nstFirst ? (uint256(0), _buy) : (_buy, uint256(0));
         pair.swap(_amt0Out, _amt1Out, address(this), new bytes(0));
 
         // Deposit

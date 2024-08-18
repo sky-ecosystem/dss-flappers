@@ -118,7 +118,7 @@ contract SplitterTest is DssTest {
         SplitterInstance memory splitterInstance = FlapperDeploy.deploySplitter({
             deployer: address(this),
             owner:    PAUSE_PROXY,
-            daiJoin:  DAI_JOIN
+            nstJoin:  DAI_JOIN
         });
         splitter = Splitter(splitterInstance.splitter);
 
@@ -126,7 +126,7 @@ contract SplitterTest is DssTest {
             deployer: address(this),
             owner:    PAUSE_PROXY,
             spotter:  SPOT,
-            dai:      DAI,
+            nst:      DAI,
             gem:      MKR,
             pair:     UNIV2_DAI_MKR_PAIR,
             receiver: PAUSE_PROXY,
@@ -141,7 +141,7 @@ contract SplitterTest is DssTest {
             bump:                5707 * RAD,
             hop:                 30 minutes,
             burn:                70 * WAD / 100,
-            daiJoin:             DAI_JOIN,
+            nstJoin:             DAI_JOIN,
             splitterChainlogKey: "MCD_FLAP_SPLIT",
             prevMomChainlogKey:  "FLAPPER_MOM",
             momChainlogKey:      "SPLITTER_MOM"
@@ -150,14 +150,14 @@ contract SplitterTest is DssTest {
             want:            WAD * 97 / 100,
             pip:             address(medianizer),
             pair:            UNIV2_DAI_MKR_PAIR,
-            dai:             DAI,
+            nst:             DAI,
             splitter:        address(splitter),
             prevChainlogKey: bytes32(0),
             chainlogKey:     "MCD_FLAP_BURN"
         });
         FarmConfig memory farmCfg = FarmConfig({
             splitter:        address(splitter),
-            daiJoin:         DAI_JOIN,
+            nstJoin:         DAI_JOIN,
             hop:             30 minutes,
             prevChainlogKey: bytes32(0),
             chainlogKey:     "MCD_FARM_NST"
@@ -300,7 +300,7 @@ contract SplitterTest is DssTest {
 
         assertEq(s.hop(), 1 hours);
         assertEq(s.zzz(), 0);
-        assertEq(address(s.daiJoin()),  DAI_JOIN);
+        assertEq(address(s.nstJoin()),  DAI_JOIN);
         assertEq(address(s.vat()), address(vat));
         assertEq(address(s.farm()), address(0));
         assertEq(s.wards(address(this)), 1);
