@@ -128,10 +128,10 @@ contract FlapperUniV2SwapOnlyTest is DssTest {
         vm.stopPrank();
 
         (flapper, medianizer) = setUpFlapper(MKR, UNIV2_DAI_MKR_PAIR, 727 * WAD) ;
-        assertEq(flapper.nstFirst(), true);
+        assertEq(flapper.usdsFirst(), true);
 
         (linkFlapper, linkMedianizer) = setUpFlapper(LINK, UNIV2_LINK_DAI_PAIR, 654 * WAD / 100);
-        assertEq(linkFlapper.nstFirst(), false);
+        assertEq(linkFlapper.usdsFirst(), false);
 
         changeFlapper(address(flapper)); // Use MKR flapper by default
 
@@ -160,7 +160,7 @@ contract FlapperUniV2SwapOnlyTest is DssTest {
             deployer: address(this),
             owner:    PAUSE_PROXY,
             spotter:  SPOT,
-            nst:      DAI,
+            usds:     DAI,
             gem:      gem,
             pair:     pair,
             receiver: PAUSE_PROXY,
@@ -173,7 +173,7 @@ contract FlapperUniV2SwapOnlyTest is DssTest {
             want:            WAD * 97 / 100,
             pip:             address(_medianizer),
             pair:            pair,
-            nst:             DAI,
+            usds:            DAI,
             splitter:        address(splitter),
             prevChainlogKey: bytes32(0),
             chainlogKey:     "MCD_FLAP_BURN"

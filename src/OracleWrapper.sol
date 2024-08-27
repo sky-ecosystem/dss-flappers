@@ -31,7 +31,7 @@ contract OracleWrapper {
         address _flapper,
         uint256 _divisor
     ) {
-        pip      = PipLike(_pip);
+        pip     = PipLike(_pip);
         flapper = _flapper;
         divisor = _divisor;
     }

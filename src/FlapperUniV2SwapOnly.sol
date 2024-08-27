@@ -44,12 +44,12 @@ contract FlapperUniV2SwapOnly {
                           //              For example: 0.98 * WAD allows 2% worse price than the reference.
 
     SpotterLike public immutable spotter;
-    address     public immutable nst;
+    address     public immutable usds;
     address     public immutable gem;
     address     public immutable receiver;
 
     PairLike    public immutable pair;
-    bool        public immutable nstFirst;
+    bool        public immutable usdsFirst;
 
     event Rely(address indexed usr);
     event Deny(address indexed usr);
@@ -59,20 +59,20 @@ contract FlapperUniV2SwapOnly {
 
     constructor(
         address _spotter,
-        address _nst,
+        address _usds,
         address _gem,
         address _pair,
         address _receiver
     ) {
         spotter = SpotterLike(_spotter);
 
-        nst = _nst;
-        gem = _gem;
+        usds = _usds;
+        gem  = _gem;
         require(GemLike(gem).decimals() == 18, "FlapperUniV2SwapOnly/gem-decimals-not-18");
 
-        pair     = PairLike(_pair);
-        nstFirst = pair.token0() == nst;
-        receiver = _receiver;
+        pair      = PairLike(_pair);
+        usdsFirst = pair.token0() == usds;
+        receiver  = _receiver;
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
@@ -104,9 +104,9 @@ contract FlapperUniV2SwapOnly {
         emit File(what, data);
     }
 
-    function _getReserves() internal view returns (uint256 reserveNst, uint256 reserveGem) {
+    function _getReserves() internal view returns (uint256 reserveUsds, uint256 reserveGem) {
         (uint256 _reserveA, uint256 _reserveB,) = pair.getReserves();
-        (reserveNst, reserveGem) = nstFirst ? (_reserveA, _reserveB) : (_reserveB, _reserveA);
+        (reserveUsds, reserveGem) = usdsFirst ? (_reserveA, _reserveB) : (_reserveB, _reserveA);
     }
 
     // Based on: https://github.com/Uniswap/v2-periphery/blob/0335e8f7e1bd1e8d8329fd300aea2ef2f36dd19f/contracts/libraries/UniswapV2Library.sol#L43
@@ -117,15 +117,15 @@ contract FlapperUniV2SwapOnly {
 
     function exec(uint256 lot) external auth {
         // Check Amount to buy
-        (uint256 _reserveNst, uint256 _reserveGem) = _getReserves();
+        (uint256 _reserveUsds, uint256 _reserveGem) = _getReserves();
 
-        uint256 _buy = _getAmountOut(lot, _reserveNst, _reserveGem);
+        uint256 _buy = _getAmountOut(lot, _reserveUsds, _reserveGem);
         require(_buy >= lot * want / (uint256(pip.read()) * RAY / spotter.par()), "FlapperUniV2SwapOnly/insufficient-buy-amount");
         //
 
         // Swap
-        GemLike(nst).transfer(address(pair), lot);
-        (uint256 _amt0Out, uint256 _amt1Out) = nstFirst ? (uint256(0), _buy) : (_buy, uint256(0));
+        GemLike(usds).transfer(address(pair), lot);
+        (uint256 _amt0Out, uint256 _amt1Out) = usdsFirst ? (uint256(0), _buy) : (_buy, uint256(0));
         pair.swap(_amt0Out, _amt1Out, receiver, new bytes(0));
         //
 

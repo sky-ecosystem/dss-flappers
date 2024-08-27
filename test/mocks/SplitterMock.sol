@@ -7,7 +7,7 @@ interface VatLike {
     function hope(address) external;
 }
 
-interface NstJoinLike {
+interface UsdsJoinLike {
     function vat() external view returns (address);
     function exit(address, uint256) external;
 }
@@ -19,16 +19,16 @@ interface FlapLike {
 contract SplitterMock {
     FlapLike    public           flapper;
 
-    VatLike     public immutable vat;
-    NstJoinLike public immutable nstJoin;
+    VatLike      public immutable vat;
+    UsdsJoinLike public immutable usdsJoin;
 
     constructor(
-        address _nstJoin
+        address _usdsJoin
     ) {
-        nstJoin = NstJoinLike(_nstJoin);
-        vat = VatLike(nstJoin.vat());
+        usdsJoin = UsdsJoinLike(_usdsJoin);
+        vat = VatLike(usdsJoin.vat());
 
-        vat.hope(_nstJoin);
+        vat.hope(_usdsJoin);
     }
 
     uint256 internal constant RAY = 10 ** 27;
@@ -41,7 +41,7 @@ contract SplitterMock {
     function kick(uint256 tot, uint256) external returns (uint256) {
         vat.move(msg.sender, address(this), tot);
         uint256 lot = tot / RAY;
-        NstJoinLike(nstJoin).exit(address(flapper), lot);
+        UsdsJoinLike(usdsJoin).exit(address(flapper), lot);
         flapper.exec(lot);
         return 0;
     }

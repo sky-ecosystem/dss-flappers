@@ -118,7 +118,7 @@ contract SplitterTest is DssTest {
         SplitterInstance memory splitterInstance = FlapperDeploy.deploySplitter({
             deployer: address(this),
             owner:    PAUSE_PROXY,
-            nstJoin:  DAI_JOIN
+            usdsJoin: DAI_JOIN
         });
         splitter = Splitter(splitterInstance.splitter);
 
@@ -126,7 +126,7 @@ contract SplitterTest is DssTest {
             deployer: address(this),
             owner:    PAUSE_PROXY,
             spotter:  SPOT,
-            nst:      DAI,
+            usds:     DAI,
             gem:      MKR,
             pair:     UNIV2_DAI_MKR_PAIR,
             receiver: PAUSE_PROXY,
@@ -141,7 +141,7 @@ contract SplitterTest is DssTest {
             bump:                5707 * RAD,
             hop:                 30 minutes,
             burn:                70 * WAD / 100,
-            nstJoin:             DAI_JOIN,
+            usdsJoin:            DAI_JOIN,
             splitterChainlogKey: "MCD_FLAP_SPLIT",
             prevMomChainlogKey:  "FLAPPER_MOM",
             momChainlogKey:      "SPLITTER_MOM"
@@ -150,17 +150,17 @@ contract SplitterTest is DssTest {
             want:            WAD * 97 / 100,
             pip:             address(medianizer),
             pair:            UNIV2_DAI_MKR_PAIR,
-            nst:             DAI,
+            usds:            DAI,
             splitter:        address(splitter),
             prevChainlogKey: bytes32(0),
             chainlogKey:     "MCD_FLAP_BURN"
         });
         FarmConfig memory farmCfg = FarmConfig({
             splitter:        address(splitter),
-            nstJoin:         DAI_JOIN,
+            usdsJoin:        DAI_JOIN,
             hop:             30 minutes,
             prevChainlogKey: bytes32(0),
-            chainlogKey:     "MCD_FARM_NST"
+            chainlogKey:     "MCD_FARM_USDS"
         });
 
         DssInstance memory dss = MCD.loadFromChainlog(LOG);
@@ -172,7 +172,7 @@ contract SplitterTest is DssTest {
 
         assertEq(dss.chainlog.getAddress("MCD_FLAP_SPLIT"), splitterInstance.splitter);
         assertEq(dss.chainlog.getAddress("MCD_FLAP_BURN"), address(flapper));
-        assertEq(dss.chainlog.getAddress("MCD_FARM_NST"), address(farm));
+        assertEq(dss.chainlog.getAddress("MCD_FARM_USDS"), address(farm));
 
         // Add initial liquidity if needed
         (uint256 reserveDai, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, DAI, MKR);
@@ -300,7 +300,7 @@ contract SplitterTest is DssTest {
 
         assertEq(s.hop(), 1 hours);
         assertEq(s.zzz(), 0);
-        assertEq(address(s.nstJoin()),  DAI_JOIN);
+        assertEq(address(s.usdsJoin()), DAI_JOIN);
         assertEq(address(s.vat()), address(vat));
         assertEq(address(s.farm()), address(0));
         assertEq(s.wards(address(this)), 1);
