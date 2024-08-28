@@ -32,15 +32,15 @@ library FlapperDeploy {
         address deployer,
         address owner,
         address spotter,
-        address nst,
+        address usds,
         address gem,
         address pair,
         address receiver,
         bool    swapOnly
     ) internal returns (address flapper) {
         flapper =
-            swapOnly ? address(new FlapperUniV2SwapOnly(spotter, nst, gem, pair, receiver))
-                     : address(new FlapperUniV2(spotter, nst, gem, pair, receiver))
+            swapOnly ? address(new FlapperUniV2SwapOnly(spotter, usds, gem, pair, receiver))
+                     : address(new FlapperUniV2(spotter, usds, gem, pair, receiver))
         ;
 
         ScriptTools.switchOwner(flapper, deployer, owner);
@@ -57,9 +57,9 @@ library FlapperDeploy {
     function deploySplitter(
         address deployer,
         address owner,
-        address nstJoin
+        address usdsJoin
     ) internal returns (SplitterInstance memory splitterInstance) {
-        address splitter = address(new Splitter(nstJoin));
+        address splitter = address(new Splitter(usdsJoin));
         address mom = address(new SplitterMom(splitter));
 
         ScriptTools.switchOwner(splitter, deployer, owner);
