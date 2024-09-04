@@ -96,7 +96,6 @@ contract FlapperUniV2SwapOnlyTest is DssTest {
     address     PAUSE_PROXY;
     VatLike     vat;
     VowLike     vow;
-    SpotterLike spotter;
 
     address constant LOG                 = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
@@ -118,7 +117,6 @@ contract FlapperUniV2SwapOnlyTest is DssTest {
         PAUSE_PROXY   = ChainlogLike(LOG).getAddress("MCD_PAUSE_PROXY");
         vat           = VatLike(ChainlogLike(LOG).getAddress("MCD_VAT"));
         vow           = VowLike(ChainlogLike(LOG).getAddress("MCD_VOW"));
-        spotter       = SpotterLike(ChainlogLike(LOG).getAddress("MCD_SPOT"));
 
         splitter = new SplitterMock(DAI_JOIN);
         vm.startPrank(PAUSE_PROXY);
@@ -206,7 +204,7 @@ contract FlapperUniV2SwapOnlyTest is DssTest {
     }
 
     function refAmountOut(uint256 amountIn, address pip) internal view returns (uint256) {
-        return amountIn * WAD / (uint256(MockMedianizer(pip).read()) * RAY / spotter.par());
+        return amountIn * WAD / (uint256(MockMedianizer(pip).read()) * RAY / SpotterLike(SPOT).par());
     }
 
     function uniV2GemForDai(uint256 amountIn, address gem) internal view returns (uint256 amountOut) {
