@@ -205,7 +205,7 @@ contract FlapperUniV2SwapOnlyTest is DssTest {
             _medianizer.setPrice(price);
             changeUniV2Price(price, gem, pair);
             (reserveUsds, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, USDS, gem);
-            if(reserveUsds < minimalUsdsReserve) {
+            if (reserveUsds < minimalUsdsReserve) {
                 topUpLiquidity(minimalUsdsReserve - reserveUsds, gem, pair);
             }
         } else {

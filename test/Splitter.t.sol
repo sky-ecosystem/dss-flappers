@@ -180,7 +180,7 @@ contract SplitterTest is DssTest {
             changeMedianizerPrice(727 * WAD);
             changeUniV2Price(medianizer.read(), SKY, UNIV2_SKY_USDS_PAIR);
             (reserveUsds, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, USDS, SKY);
-            if(reserveUsds < minimalUsdsReserve) {
+            if (reserveUsds < minimalUsdsReserve) {
                 topUpLiquidity(minimalUsdsReserve - reserveUsds, SKY, UNIV2_SKY_USDS_PAIR);
             }
         } else {
