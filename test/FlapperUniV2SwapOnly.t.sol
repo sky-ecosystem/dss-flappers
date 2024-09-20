@@ -123,7 +123,7 @@ contract FlapperUniV2SwapOnlyTest is DssTest {
         vow           = VowLike(ChainlogLike(LOG).getAddress("MCD_VOW"));
 
         UNIV2_USDS_IMX_PAIR = UniV2FactoryLike(UNIV2_FACTORY).getPair(USDS, IMX);
-        if(UNIV2_USDS_IMX_PAIR == address(0)) {
+        if (UNIV2_USDS_IMX_PAIR == address(0)) {
             UNIV2_USDS_IMX_PAIR = UniV2FactoryLike(UNIV2_FACTORY).createPair(USDS, IMX);
         }
 
