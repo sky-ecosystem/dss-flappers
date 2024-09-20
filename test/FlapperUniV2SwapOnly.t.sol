@@ -60,7 +60,8 @@ interface GemLike {
     function transfer(address, uint256) external;
 }
 
-interface Univ2FactoryLike {
+interface UniV2FactoryLike {
+    function getPair(address, address) external view returns (address);
     function createPair(address, address) external returns (address);
 }
 
@@ -121,7 +122,10 @@ contract FlapperUniV2SwapOnlyTest is DssTest {
         vat           = VatLike(ChainlogLike(LOG).getAddress("MCD_VAT"));
         vow           = VowLike(ChainlogLike(LOG).getAddress("MCD_VOW"));
 
-        UNIV2_USDS_IMX_PAIR = Univ2FactoryLike(UNIV2_FACTORY).createPair(USDS, IMX);
+        UNIV2_USDS_IMX_PAIR = UniV2FactoryLike(UNIV2_FACTORY).getPair(USDS, IMX);
+        if(UNIV2_USDS_IMX_PAIR == address(0)) {
+            UNIV2_USDS_IMX_PAIR = UniV2FactoryLike(UNIV2_FACTORY).createPair(USDS, IMX);
+        }
 
         splitter = new SplitterMock(USDS_JOIN);
         vm.startPrank(PAUSE_PROXY);

@@ -51,7 +51,7 @@ interface PairLike {
 }
 
 interface UsdsJoinLike {
-    function dai() external view returns (address); // TODO: Replace when new join is ready by the new getter
+    function usds() external view returns (address);
 }
 
 interface SplitterLike {
@@ -158,7 +158,7 @@ library FlapperInit {
         FarmLike     farm     = FarmLike(farm_);
         SplitterLike splitter = SplitterLike(cfg.splitter);
 
-        require(farm.rewardsToken() == UsdsJoinLike(cfg.usdsJoin).dai(), "Farm rewards not usds");
+        require(farm.rewardsToken() == UsdsJoinLike(cfg.usdsJoin).usds(), "Farm rewards not usds");
         // Staking token is checked in the Lockstake script
 
         // The following two checks enforce the initSplitter function has to be called first

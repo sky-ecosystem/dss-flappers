@@ -62,7 +62,8 @@ interface GemLike {
     function transfer(address, uint256) external;
 }
 
-interface Univ2FactoryLike {
+interface UniV2FactoryLike {
+    function getPair(address, address) external view returns (address);
     function createPair(address, address) external returns (address);
 }
 
@@ -123,8 +124,11 @@ contract FlapperUniV2Test is DssTest {
         vat           = VatLike(ChainlogLike(LOG).getAddress("MCD_VAT"));
         vow           = VowLike(ChainlogLike(LOG).getAddress("MCD_VOW"));
 
-        UNIV2_USDS_IMX_PAIR = Univ2FactoryLike(UNIV2_FACTORY).createPair(USDS, IMX);
-        
+        UNIV2_USDS_IMX_PAIR = UniV2FactoryLike(UNIV2_FACTORY).getPair(USDS, IMX);
+        if(UNIV2_USDS_IMX_PAIR == address(0)) {
+            UNIV2_USDS_IMX_PAIR = UniV2FactoryLike(UNIV2_FACTORY).createPair(USDS, IMX);
+        }
+
         splitter = new SplitterMock(USDS_JOIN);
         vm.startPrank(PAUSE_PROXY);
         vow.file("hump", 50_000_000 * RAD);
@@ -399,7 +403,7 @@ contract FlapperUniV2Test is DssTest {
         vm.revertTo(initialState);
 
         // New version
-        vm.prank(PAUSE_PROXY); vow.file("bump", totalUsdsConsumed * RAY); // The current flapper gets the total vat.Usds to consume.
+        vm.prank(PAUSE_PROXY); vow.file("bump", totalUsdsConsumed * RAY); // The current flapper gets the total vat.dai to consume.
         doExec(address(flapper), SKY, UNIV2_SKY_USDS_PAIR);
         uint256 boughtLpNewVersion = GemLike(UNIV2_SKY_USDS_PAIR).balanceOf(PAUSE_PROXY) - initialLp;
 
