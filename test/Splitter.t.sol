@@ -25,6 +25,7 @@ import { Splitter } from "src/Splitter.sol";
 import { FlapperUniV2SwapOnly } from "src/FlapperUniV2SwapOnly.sol";
 import { StakingRewardsMock } from "test/mocks/StakingRewardsMock.sol";
 import { GemMock } from "test/mocks/GemMock.sol";
+import { MedianizerMock } from "test/mocks/MedianizerMock.sol";
 import "./helpers/UniswapV2Library.sol";
 
 interface ChainlogLike {
@@ -75,7 +76,7 @@ contract SplitterTest is DssTest {
     Splitter             public splitter;
     StakingRewardsMock   public farm;
     FlapperUniV2SwapOnly public flapper;
-    PipLike              public medianizer;
+    MedianizerMock       public medianizer;
 
     address     USDS_JOIN;
     address     SPOT;
@@ -102,7 +103,7 @@ contract SplitterTest is DssTest {
         USDS          = ChainlogLike(LOG).getAddress("USDS");
         SKY           = ChainlogLike(LOG).getAddress("SKY");
         PAUSE_PROXY   = ChainlogLike(LOG).getAddress("MCD_PAUSE_PROXY");
-        medianizer    = PipLike(ChainlogLike(LOG).getAddress("PIP_MKR"));
+        medianizer    = new MedianizerMock();
         vat           = VatLike(ChainlogLike(LOG).getAddress("MCD_VAT"));
         vow           = VowLike(ChainlogLike(LOG).getAddress("MCD_VOW"));
         end           = EndLike(ChainlogLike(LOG).getAddress("MCD_END"));
@@ -177,14 +178,14 @@ contract SplitterTest is DssTest {
         (uint256 reserveUsds, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, USDS, SKY);
         uint256 minimalUsdsReserve = 280_000 * WAD;
         if (reserveUsds < minimalUsdsReserve) {
-            changeMedianizerPrice(727 * WAD);
-            changeUniV2Price(medianizer.read(), SKY, UNIV2_SKY_USDS_PAIR);
+            medianizer.setPrice(0.06 * 1e18);
+            changeUniV2Price(uint256(medianizer.read()), SKY, UNIV2_SKY_USDS_PAIR);
             (reserveUsds, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, USDS, SKY);
             if (reserveUsds < minimalUsdsReserve) {
                 topUpLiquidity(minimalUsdsReserve - reserveUsds, SKY, UNIV2_SKY_USDS_PAIR);
             }
         } else {
-            changeMedianizerPrice(uniV2UsdsForGem(WAD, SKY));
+            medianizer.setPrice(uniV2UsdsForGem(WAD, SKY));
         }
 
         // Create additional surplus if needed
@@ -226,10 +227,6 @@ contract SplitterTest is DssTest {
             deal(USDS, pair, reserveGem * usdsForGem / WAD);
         }
         PairLike(pair).sync();
-    }
-
-    function changeMedianizerPrice(uint256 usdsForGem) internal {
-        vm.store(address(medianizer), bytes32(uint256(1)), bytes32(block.timestamp << 128 | usdsForGem));
     }
 
     function topUpLiquidity(uint256 usdsAmt, address gem, address pair) internal {

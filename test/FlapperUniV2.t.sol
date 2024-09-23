@@ -24,6 +24,7 @@ import { FlapperUniV2Config, FlapperInit } from "deploy/FlapperInit.sol";
 import { FlapperUniV2 } from "src/FlapperUniV2.sol";
 import { Babylonian } from "src/Babylonian.sol";
 import { SplitterMock } from "test/mocks/SplitterMock.sol";
+import { MedianizerMock } from "test/mocks/MedianizerMock.sol";
 import "./helpers/UniswapV2Library.sol";
 
 interface ChainlogLike {
@@ -67,32 +68,14 @@ interface UniV2FactoryLike {
     function createPair(address, address) external returns (address);
 }
 
-contract MockMedianizer {
-    uint256 public price;
-    mapping (address => uint256) public bud;
-
-    function setPrice(uint256 price_) external {
-        price = price_;
-    }
-
-    function kiss(address a) external {
-        bud[a] = 1;
-    }
-
-    function read() external view returns (bytes32) {
-        require(bud[msg.sender] == 1, "MockMedianizer/not-authorized");
-        return bytes32(price);
-    }
-}
-
 contract FlapperUniV2Test is DssTest {
     using stdStorage for StdStorage;
 
     SplitterMock   public splitter;
     FlapperUniV2   public flapper;
     FlapperUniV2   public imxFlapper;
-    MockMedianizer public medianizer;
-    MockMedianizer public imxMedianizer;
+    MedianizerMock public medianizer;
+    MedianizerMock public imxMedianizer;
 
     address     USDS_JOIN;
     address     SPOT;
@@ -142,10 +125,10 @@ contract FlapperUniV2Test is DssTest {
             PairLike(UNIV2_USDS_IMX_PAIR).sync();
         }
 
-        (flapper, medianizer) = setUpFlapper(SKY, UNIV2_SKY_USDS_PAIR, 727 * WAD, "MCD_FLAP") ;
+        (flapper, medianizer) = setUpFlapper(SKY, UNIV2_SKY_USDS_PAIR, 0.06 * 1e18, "MCD_FLAP") ;
         assertEq(flapper.usdsFirst(), false);
 
-        (imxFlapper, imxMedianizer) = setUpFlapper(IMX, UNIV2_USDS_IMX_PAIR, 654 * WAD / 100, bytes32(0));
+        (imxFlapper, imxMedianizer) = setUpFlapper(IMX, UNIV2_USDS_IMX_PAIR, 1.85 * 1e18, bytes32(0));
         assertEq(imxFlapper.usdsFirst(), true);
 
         changeFlapper(address(flapper)); // Use SKY flapper by default
@@ -166,9 +149,9 @@ contract FlapperUniV2Test is DssTest {
 
     function setUpFlapper(address gem, address pair, uint256 price, bytes32 prevChainlogKey)
         internal
-        returns (FlapperUniV2 _flapper, MockMedianizer _medianizer)
+        returns (FlapperUniV2 _flapper, MedianizerMock _medianizer)
     {
-        _medianizer = new MockMedianizer();
+        _medianizer = new MedianizerMock();
         _medianizer.kiss(address(this));
 
         _flapper = FlapperUniV2(FlapperDeploy.deployFlapperUniV2({
@@ -225,7 +208,7 @@ contract FlapperUniV2Test is DssTest {
     }
 
     function refAmountOut(uint256 amountIn, address pip) internal view returns (uint256) {
-        return amountIn * WAD / (uint256(MockMedianizer(pip).read()) * RAY / SpotterLike(SPOT).par());
+        return amountIn * WAD / (uint256(MedianizerMock(pip).read()) * RAY / SpotterLike(SPOT).par());
     }
 
     function uniV2GemForUsds(uint256 amountIn, address gem) internal view returns (uint256 amountOut) {
