@@ -23,6 +23,7 @@ import { FlapperDeploy } from "deploy/FlapperDeploy.sol";
 import { FlapperUniV2Config, FlapperInit } from "deploy/FlapperInit.sol";
 import { FlapperUniV2SwapOnly } from "src/FlapperUniV2SwapOnly.sol";
 import { SplitterMock } from "test/mocks/SplitterMock.sol";
+import { MedianizerMock } from "test/mocks/MedianizerMock.sol";
 import "./helpers/UniswapV2Library.sol";
 
 interface ChainlogLike {
@@ -60,22 +61,9 @@ interface GemLike {
     function transfer(address, uint256) external;
 }
 
-contract MockMedianizer {
-    uint256 public price;
-    mapping (address => uint256) public bud;
-
-    function setPrice(uint256 price_) external {
-        price = price_;
-    }
-
-    function kiss(address a) external {
-        bud[a] = 1;
-    }
-
-    function read() external view returns (bytes32) {
-        require(bud[msg.sender] == 1, "MockMedianizer/not-authorized");
-        return bytes32(price);
-    }
+interface UniV2FactoryLike {
+    function getPair(address, address) external view returns (address);
+    function createPair(address, address) external returns (address);
 }
 
 contract FlapperUniV2SwapOnlyTest is DssTest {
@@ -83,55 +71,65 @@ contract FlapperUniV2SwapOnlyTest is DssTest {
 
     SplitterMock         public splitter;
     FlapperUniV2SwapOnly public flapper;
-    FlapperUniV2SwapOnly public linkFlapper;
-    MockMedianizer       public medianizer;
-    MockMedianizer       public linkMedianizer;
+    FlapperUniV2SwapOnly public imxFlapper;
+    MedianizerMock       public medianizer;
+    MedianizerMock       public imxMedianizer;
 
-    address     DAI_JOIN;
+    address     USDS_JOIN;
     address     SPOT;
-    address     DAI;
-    address     MKR;
+    address     USDS;
+    address     SKY;
     address     USDC;
-    address     LINK;
     address     PAUSE_PROXY;
     VatLike     vat;
     VowLike     vow;
+    address     UNIV2_USDS_IMX_PAIR;
 
     address constant LOG                 = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
+    address constant IMX                 = 0xF57e7e7C23978C3cAEC3C3548E3D615c346e79fF; // Random token that orders after USDS
     address constant UNIV2_FACTORY       = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
-    address constant UNIV2_DAI_MKR_PAIR  = 0x517F9dD285e75b599234F7221227339478d0FcC8;
-    address constant UNIV2_LINK_DAI_PAIR = 0x6D4fd456eDecA58Cf53A8b586cd50754547DBDB2;
+    address constant UNIV2_SKY_USDS_PAIR = 0x2621CC0B3F3c079c1Db0E80794AA24976F0b9e3c;
 
     event Exec(uint256 lot, uint256 bought);
 
     function setUp() public {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
 
-        DAI_JOIN      = ChainlogLike(LOG).getAddress("MCD_JOIN_DAI");
+        USDS_JOIN     = ChainlogLike(LOG).getAddress("USDS_JOIN");
         SPOT          = ChainlogLike(LOG).getAddress("MCD_SPOT");
-        DAI           = ChainlogLike(LOG).getAddress("MCD_DAI");
-        MKR           = ChainlogLike(LOG).getAddress("MCD_GOV");
+        USDS          = ChainlogLike(LOG).getAddress("USDS");
+        SKY           = ChainlogLike(LOG).getAddress("SKY");
         USDC          = ChainlogLike(LOG).getAddress("USDC");
-        LINK          = ChainlogLike(LOG).getAddress("LINK");
         PAUSE_PROXY   = ChainlogLike(LOG).getAddress("MCD_PAUSE_PROXY");
         vat           = VatLike(ChainlogLike(LOG).getAddress("MCD_VAT"));
         vow           = VowLike(ChainlogLike(LOG).getAddress("MCD_VOW"));
 
-        splitter = new SplitterMock(DAI_JOIN);
+        UNIV2_USDS_IMX_PAIR = UniV2FactoryLike(UNIV2_FACTORY).getPair(USDS, IMX);
+        if (UNIV2_USDS_IMX_PAIR == address(0)) {
+            UNIV2_USDS_IMX_PAIR = UniV2FactoryLike(UNIV2_FACTORY).createPair(USDS, IMX);
+        }
+
+        splitter = new SplitterMock(USDS_JOIN);
         vm.startPrank(PAUSE_PROXY);
         vow.file("hump", 50_000_000 * RAD);
         vow.file("bump", 5707 * RAD);
         vow.file("flapper", address(splitter));
         vm.stopPrank();
 
-        (flapper, medianizer) = setUpFlapper(MKR, UNIV2_DAI_MKR_PAIR, 727 * WAD) ;
-        assertEq(flapper.usdsFirst(), true);
+        {
+            deal(IMX, UNIV2_USDS_IMX_PAIR, 200_000_0000 * WAD, true);
+            deal(USDS, UNIV2_USDS_IMX_PAIR, 10_000_0000 * WAD, true);
+            PairLike(UNIV2_USDS_IMX_PAIR).sync();
+        }
 
-        (linkFlapper, linkMedianizer) = setUpFlapper(LINK, UNIV2_LINK_DAI_PAIR, 654 * WAD / 100);
-        assertEq(linkFlapper.usdsFirst(), false);
+        (flapper, medianizer) = setUpFlapper(SKY, UNIV2_SKY_USDS_PAIR, 0.06 * 1e18, "MCD_FLAP") ;
+        assertEq(flapper.usdsFirst(), false);
 
-        changeFlapper(address(flapper)); // Use MKR flapper by default
+        (imxFlapper, imxMedianizer) = setUpFlapper(IMX, UNIV2_USDS_IMX_PAIR, 1.85 * 1e18, bytes32(0));
+        assertEq(imxFlapper.usdsFirst(), true);
+
+        changeFlapper(address(flapper)); // Use SKY flapper by default
 
         // Create additional surplus if needed
         uint256 bumps = 2 * vow.bump(); // two kicks
@@ -147,18 +145,18 @@ contract FlapperUniV2SwapOnlyTest is DssTest {
         }
     }
 
-    function setUpFlapper(address gem, address pair, uint256 price)
+    function setUpFlapper(address gem, address pair, uint256 price, bytes32 prevChainlogKey)
         internal
-        returns (FlapperUniV2SwapOnly _flapper, MockMedianizer _medianizer)
+        returns (FlapperUniV2SwapOnly _flapper, MedianizerMock _medianizer)
     {
-        _medianizer = new MockMedianizer();
+        _medianizer = new MedianizerMock();
         _medianizer.kiss(address(this));
 
         _flapper = FlapperUniV2SwapOnly(FlapperDeploy.deployFlapperUniV2({
             deployer: address(this),
             owner:    PAUSE_PROXY,
             spotter:  SPOT,
-            usds:     DAI,
+            usds:     USDS,
             gem:      gem,
             pair:     pair,
             receiver: PAUSE_PROXY,
@@ -171,9 +169,9 @@ contract FlapperUniV2SwapOnlyTest is DssTest {
             want:            WAD * 97 / 100,
             pip:             address(_medianizer),
             pair:            pair,
-            usds:            DAI,
+            usds:            USDS,
             splitter:        address(splitter),
-            prevChainlogKey: bytes32(0),
+            prevChainlogKey: prevChainlogKey,
             chainlogKey:     "MCD_FLAP_BURN"
         });
         DssInstance memory dss = MCD.loadFromChainlog(LOG);
@@ -184,18 +182,18 @@ contract FlapperUniV2SwapOnlyTest is DssTest {
         assertEq(dss.chainlog.getAddress("MCD_FLAP_BURN"), address(_flapper));
 
         // Add initial liquidity if needed
-        (uint256 reserveDai, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, DAI, gem);
-        uint256 minimalDaiReserve = 280_000 * WAD;
-        if (reserveDai < minimalDaiReserve) {
+        (uint256 reserveUsds, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, USDS, gem);
+        uint256 minimalUsdsReserve = 280_000 * WAD;
+        if (reserveUsds < minimalUsdsReserve) {
             _medianizer.setPrice(price);
             changeUniV2Price(price, gem, pair);
-            (reserveDai, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, DAI, gem);
-            if(reserveDai < minimalDaiReserve) {
-                topUpLiquidity(minimalDaiReserve - reserveDai, gem, pair);
+            (reserveUsds, ) = UniswapV2Library.getReserves(UNIV2_FACTORY, USDS, gem);
+            if (reserveUsds < minimalUsdsReserve) {
+                topUpLiquidity(minimalUsdsReserve - reserveUsds, gem, pair);
             }
         } else {
             // If there is initial liquidity, then the oracle price should be set to the current price
-            _medianizer.setPrice(uniV2DaiForGem(WAD, gem));
+            _medianizer.setPrice(uniV2UsdsForGem(WAD, gem));
         }
     }
 
@@ -204,40 +202,40 @@ contract FlapperUniV2SwapOnlyTest is DssTest {
     }
 
     function refAmountOut(uint256 amountIn, address pip) internal view returns (uint256) {
-        return amountIn * WAD / (uint256(MockMedianizer(pip).read()) * RAY / SpotterLike(SPOT).par());
+        return amountIn * WAD / (uint256(MedianizerMock(pip).read()) * RAY / SpotterLike(SPOT).par());
     }
 
-    function uniV2GemForDai(uint256 amountIn, address gem) internal view returns (uint256 amountOut) {
-        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, DAI, gem);
-        amountOut = UniswapV2Library.getAmountOut(amountIn, reserveDai, reserveGem);
+    function uniV2GemForUsds(uint256 amountIn, address gem) internal view returns (uint256 amountOut) {
+        (uint256 reserveUsds, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, USDS, gem);
+        amountOut = UniswapV2Library.getAmountOut(amountIn, reserveUsds, reserveGem);
     }
 
-    function uniV2DaiForGem(uint256 amountIn, address gem) internal view returns (uint256 amountOut) {
-        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, DAI, gem);
-        return UniswapV2Library.getAmountOut(amountIn, reserveGem, reserveDai);
+    function uniV2UsdsForGem(uint256 amountIn, address gem) internal view returns (uint256 amountOut) {
+        (uint256 reserveUsds, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, USDS, gem);
+        return UniswapV2Library.getAmountOut(amountIn, reserveGem, reserveUsds);
     }
 
-    function changeUniV2Price(uint256 daiForGem, address gem, address pair) internal {
-        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, DAI, gem);
-        uint256 currentDaiForGem = reserveDai * WAD / reserveGem;
+    function changeUniV2Price(uint256 usdsForGem, address gem, address pair) internal {
+        (uint256 reserveUsds, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, USDS, gem);
+        uint256 currentUsdsForGem = reserveUsds * WAD / reserveGem;
 
-        // neededReserveDai * WAD / neededReserveMkr = daiForGem;
-        if (currentDaiForGem > daiForGem) {
-            deal(gem, pair, reserveDai * WAD / daiForGem);
+        // neededReserveUsds * WAD / neededReserveSky = usdsForGem;
+        if (currentUsdsForGem > usdsForGem) {
+            deal(gem, pair, reserveUsds * WAD / usdsForGem);
         } else {
-            deal(DAI, pair, reserveGem * daiForGem / WAD);
+            deal(USDS, pair, reserveGem * usdsForGem / WAD);
         }
         PairLike(pair).sync();
     }
 
-    function topUpLiquidity(uint256 daiAmt, address gem, address pair) internal {
-        (uint256 reserveDai, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, DAI, gem);
-        uint256 gemAmt = UniswapV2Library.quote(daiAmt, reserveDai, reserveGem);
+    function topUpLiquidity(uint256 usdsAmt, address gem, address pair) internal {
+        (uint256 reserveUsds, uint256 reserveGem) = UniswapV2Library.getReserves(UNIV2_FACTORY, USDS, gem);
+        uint256 gemAmt = UniswapV2Library.quote(usdsAmt, reserveUsds, reserveGem);
 
-        deal(DAI, address(this), GemLike(DAI).balanceOf(address(this)) + daiAmt);
+        deal(USDS, address(this), GemLike(USDS).balanceOf(address(this)) + usdsAmt);
         deal(gem, address(this), GemLike(gem).balanceOf(address(this)) + gemAmt);
 
-        GemLike(DAI).transfer(pair, daiAmt);
+        GemLike(USDS).transfer(pair, usdsAmt);
         GemLike(gem).transfer(pair, gemAmt);
         uint256 liquidity = PairLike(pair).mint(address(this));
         assertGt(liquidity, 0);
@@ -246,7 +244,7 @@ contract FlapperUniV2SwapOnlyTest is DssTest {
 
     function marginalWant(address gem, address pip) internal view returns (uint256) {
         uint256 wbump = vow.bump() / RAY;
-        uint256 actual = uniV2GemForDai(wbump, gem);
+        uint256 actual = uniV2GemForUsds(wbump, gem);
         uint256 ref    = refAmountOut(wbump, pip);
         return actual * WAD / ref;
     }
@@ -254,30 +252,30 @@ contract FlapperUniV2SwapOnlyTest is DssTest {
     function doExec(address _flapper, address gem, address pair) internal {
         uint256 initialGem = GemLike(gem).balanceOf(address(PAUSE_PROXY));
         uint256 initialDaiVow = vat.dai(address(vow));
-        uint256 initialReserveDai = GemLike(DAI).balanceOf(pair);
-        uint256 initialReserveMkr = GemLike(gem).balanceOf(pair);
+        uint256 initialReserveUsds = GemLike(USDS).balanceOf(pair);
+        uint256 initialReserveSky = GemLike(gem).balanceOf(pair);
 
         vm.expectEmit(false, false, false, false); // only check event signature (topic 0)
         emit Exec(0, 0);
         vow.flap();
 
         assertGt(GemLike(gem).balanceOf(address(PAUSE_PROXY)), initialGem);
-        assertGt(GemLike(DAI).balanceOf(pair), initialReserveDai);
-        assertLt(GemLike(gem).balanceOf(pair), initialReserveMkr);
+        assertGt(GemLike(USDS).balanceOf(pair), initialReserveUsds);
+        assertLt(GemLike(gem).balanceOf(pair), initialReserveSky);
         assertEq(initialDaiVow - vat.dai(address(vow)), vow.bump());
-        assertEq(GemLike(DAI).balanceOf(address(_flapper)), 0);
+        assertEq(GemLike(USDS).balanceOf(address(_flapper)), 0);
         assertEq(GemLike(gem).balanceOf(address(_flapper)), 0);
     }
 
     function testDefaultValues() public {
-        FlapperUniV2SwapOnly f = new FlapperUniV2SwapOnly(DAI_JOIN, SPOT, MKR, UNIV2_DAI_MKR_PAIR, PAUSE_PROXY);
+        FlapperUniV2SwapOnly f = new FlapperUniV2SwapOnly(USDS_JOIN, SPOT, SKY, UNIV2_SKY_USDS_PAIR, PAUSE_PROXY);
         assertEq(f.want(), WAD);
         assertEq(f.wards(address(this)), 1);
     }
 
     function testIllegalGemDecimals() public {
         vm.expectRevert("FlapperUniV2SwapOnly/gem-decimals-not-18");
-        flapper = new FlapperUniV2SwapOnly(DAI_JOIN, SPOT, USDC, UNIV2_DAI_MKR_PAIR, PAUSE_PROXY);
+        flapper = new FlapperUniV2SwapOnly(USDS_JOIN, SPOT, USDC, UNIV2_SKY_USDS_PAIR, PAUSE_PROXY);
     }
 
     function testAuth() public {
@@ -301,44 +299,44 @@ contract FlapperUniV2SwapOnlyTest is DssTest {
     }
 
     function testExec() public {
-        doExec(address(flapper), MKR, UNIV2_DAI_MKR_PAIR);
+        doExec(address(flapper), SKY, UNIV2_SKY_USDS_PAIR);
     }
 
-    function testExecDaiSecond() public {
-        changeFlapper(address(linkFlapper));
-        doExec(address(linkFlapper), LINK, UNIV2_LINK_DAI_PAIR);
+    function testExecUsdsFirst() public {
+        changeFlapper(address(imxFlapper));
+        doExec(address(imxFlapper), IMX, UNIV2_USDS_IMX_PAIR);
     }
 
     function testExecWantAllows() public {
-        uint256 _marginalWant = marginalWant(MKR, address(medianizer));
+        uint256 _marginalWant = marginalWant(SKY, address(medianizer));
         vm.prank(PAUSE_PROXY); flapper.file("want", _marginalWant * 99 / 100);
-        doExec(address(flapper), MKR, UNIV2_DAI_MKR_PAIR);
+        doExec(address(flapper), SKY, UNIV2_SKY_USDS_PAIR);
     }
 
     function testExecWantBlocks() public {
-        uint256 _marginalWant = marginalWant(MKR, address(medianizer));
+        uint256 _marginalWant = marginalWant(SKY, address(medianizer));
         vm.prank(PAUSE_PROXY); flapper.file("want", _marginalWant * 101 / 100);
         vm.expectRevert("FlapperUniV2SwapOnly/insufficient-buy-amount");
         vow.flap();
     }
 
-    function testExecDaiSecondWantBlocks() public {
-        changeFlapper(address(linkFlapper));
-        uint256 _marginalWant = marginalWant(LINK, address(linkMedianizer));
-        vm.prank(PAUSE_PROXY); linkFlapper.file("want", _marginalWant * 101 / 100);
+    function testExecUsdsFirstWantBlocks() public {
+        changeFlapper(address(imxFlapper));
+        uint256 _marginalWant = marginalWant(IMX, address(imxMedianizer));
+        vm.prank(PAUSE_PROXY); imxFlapper.file("want", _marginalWant * 101 / 100);
         vm.expectRevert("FlapperUniV2SwapOnly/insufficient-buy-amount");
         vow.flap();
     }
 
-    function testExecDonationDai() public {
-        deal(DAI, UNIV2_DAI_MKR_PAIR, GemLike(DAI).balanceOf(UNIV2_DAI_MKR_PAIR) * 1005 / 1000);
+    function testExecDonationUsds() public {
+        deal(USDS, UNIV2_SKY_USDS_PAIR, GemLike(USDS).balanceOf(UNIV2_SKY_USDS_PAIR) * 1005 / 1000);
         // This will now sync the reserves before the swap
-        doExec(address(flapper), MKR, UNIV2_DAI_MKR_PAIR);
+        doExec(address(flapper), SKY, UNIV2_SKY_USDS_PAIR);
     }
 
     function testExecDonationGem() public {
-        deal(MKR, UNIV2_DAI_MKR_PAIR, GemLike(MKR).balanceOf(UNIV2_DAI_MKR_PAIR) * 1005 / 1000);
+        deal(SKY, UNIV2_SKY_USDS_PAIR, GemLike(SKY).balanceOf(UNIV2_SKY_USDS_PAIR) * 1005 / 1000);
         // This will now sync the reserves before the swap
-        doExec(address(flapper), MKR, UNIV2_DAI_MKR_PAIR);
+        doExec(address(flapper), SKY, UNIV2_SKY_USDS_PAIR);
     }
 }
