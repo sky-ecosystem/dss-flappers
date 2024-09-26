@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.21;
 
 interface PipLike {
     function read() external view returns (bytes32);
@@ -31,7 +31,7 @@ contract OracleWrapper {
         address _flapper,
         uint256 _divisor
     ) {
-        pip      = PipLike(_pip);
+        pip     = PipLike(_pip);
         flapper = _flapper;
         divisor = _divisor;
     }

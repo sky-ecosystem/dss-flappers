@@ -14,18 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pragma solidity ^0.8.16;
-
-interface VatLike {
-    function hope(address) external;
-    function move(address, address, uint256) external;
-}
-
-interface DaiJoinLike {
-    function vat() external view returns (address);
-    function dai() external view returns (address);
-    function exit(address, uint256) external;
-}
+pragma solidity ^0.8.21;
 
 interface SpotterLike {
     function par() external view returns (uint256);
@@ -33,6 +22,7 @@ interface SpotterLike {
 
 interface GemLike {
     function decimals() external view returns (uint8);
+    function transfer(address, uint256) external;
 }
 
 interface PipLike {
@@ -49,59 +39,45 @@ interface PairLike {
 contract FlapperUniV2SwapOnly {
     mapping (address => uint256) public wards;
 
-    uint256 public live;  // Active Flag
     PipLike public pip;   // Reference price oracle
-    uint256 public hop;   // [Seconds]    Time between kicks
-    uint256 public zzz;   // [Timestamp]  Last kick
     uint256 public want;  // [WAD]        Relative multiplier of the reference price to insist on in the swap.
                           //              For example: 0.98 * WAD allows 2% worse price than the reference.
 
-    VatLike     public immutable vat;
-    DaiJoinLike public immutable daiJoin;
     SpotterLike public immutable spotter;
-    address     public immutable dai;
+    address     public immutable usds;
     address     public immutable gem;
     address     public immutable receiver;
 
     PairLike    public immutable pair;
-    bool        public immutable daiFirst;
+    bool        public immutable usdsFirst;
 
     event Rely(address indexed usr);
     event Deny(address indexed usr);
     event File(bytes32 indexed what, uint256 data);
     event File(bytes32 indexed what, address data);
-    event Kick(uint256 lot, uint256 bought);
-    event Cage(uint256 rad);
+    event Exec(uint256 lot, uint256 bought);
 
     constructor(
-        address _daiJoin,
         address _spotter,
+        address _usds,
         address _gem,
         address _pair,
         address _receiver
     ) {
-        daiJoin = DaiJoinLike(_daiJoin);
-        vat     = VatLike(daiJoin.vat());
         spotter = SpotterLike(_spotter);
 
-        dai = daiJoin.dai();
-        gem = _gem;
+        usds = _usds;
+        gem  = _gem;
         require(GemLike(gem).decimals() == 18, "FlapperUniV2SwapOnly/gem-decimals-not-18");
 
-        pair     = PairLike(_pair);
-        daiFirst = pair.token0() == dai;
-        receiver = _receiver;
-
-        vat.hope(address(daiJoin));
+        pair      = PairLike(_pair);
+        usdsFirst = pair.token0() == usds;
+        receiver  = _receiver;
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
 
-        // Initial values for safety
-        hop  = 1 hours;
-        want = WAD;
-
-        live = 1;
+        want = WAD; // Initial value for safety
     }
 
     modifier auth {
@@ -117,8 +93,7 @@ contract FlapperUniV2SwapOnly {
 
     // Warning - low `want` values increase the susceptibility to oracle manipulation attacks
     function file(bytes32 what, uint256 data) external auth {
-        if      (what == "hop")  hop = data;
-        else if (what == "want") want = data;
+        if (what == "want") want = data;
         else revert("FlapperUniV2SwapOnly/file-unrecognized-param");
         emit File(what, data);
     }
@@ -129,9 +104,9 @@ contract FlapperUniV2SwapOnly {
         emit File(what, data);
     }
 
-    function _getReserves() internal view returns (uint256 reserveDai, uint256 reserveGem) {
+    function _getReserves() internal view returns (uint256 reserveUsds, uint256 reserveGem) {
         (uint256 _reserveA, uint256 _reserveB,) = pair.getReserves();
-        (reserveDai, reserveGem) = daiFirst ? (_reserveA, _reserveB) : (_reserveB, _reserveA);
+        (reserveUsds, reserveGem) = usdsFirst ? (_reserveA, _reserveB) : (_reserveB, _reserveA);
     }
 
     // Based on: https://github.com/Uniswap/v2-periphery/blob/0335e8f7e1bd1e8d8329fd300aea2ef2f36dd19f/contracts/libraries/UniswapV2Library.sol#L43
@@ -140,34 +115,20 @@ contract FlapperUniV2SwapOnly {
         amtOut = _amtInFee * reserveOut / (reserveIn * 1000 + _amtInFee);
     }
 
-    function kick(uint256 lot, uint256) external auth returns (uint256) {
-        require(live == 1, "FlapperUniV2SwapOnly/not-live");
-
-        require(block.timestamp >= zzz + hop, "FlapperUniV2SwapOnly/kicked-too-soon");
-        zzz = block.timestamp;
-
+    function exec(uint256 lot) external auth {
         // Check Amount to buy
-        (uint256 _reserveDai, uint256 _reserveGem) = _getReserves();
+        (uint256 _reserveUsds, uint256 _reserveGem) = _getReserves();
 
-        uint256 _wlot = lot / RAY;
-
-        uint256 _buy = _getAmountOut(_wlot, _reserveDai, _reserveGem);
-        require(_buy >= _wlot * want / (uint256(pip.read()) * RAY / spotter.par()), "FlapperUniV2SwapOnly/insufficient-buy-amount");
+        uint256 _buy = _getAmountOut(lot, _reserveUsds, _reserveGem);
+        require(_buy >= lot * want / (uint256(pip.read()) * RAY / spotter.par()), "FlapperUniV2SwapOnly/insufficient-buy-amount");
         //
 
-        // Get Dai and swap
-        vat.move(msg.sender, address(this), _wlot * RAY);
-        daiJoin.exit(address(pair), _wlot);
-        (uint256 _amt0Out, uint256 _amt1Out) = daiFirst ? (uint256(0), _buy) : (_buy, uint256(0));
+        // Swap
+        GemLike(usds).transfer(address(pair), lot);
+        (uint256 _amt0Out, uint256 _amt1Out) = usdsFirst ? (uint256(0), _buy) : (_buy, uint256(0));
         pair.swap(_amt0Out, _amt1Out, receiver, new bytes(0));
         //
 
-        emit Kick(lot, _buy);
-        return 0;
-    }
-
-    function cage(uint256) external auth {
-        live = 0;
-        emit Cage(0);
+        emit Exec(lot, _buy);
     }
 }

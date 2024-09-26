@@ -14,41 +14,36 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.21;
 
 import "dss-interfaces/Interfaces.sol";
 import { ScriptTools } from "dss-test/ScriptTools.sol";
 
-import { FlapperInstance } from "./FlapperInstance.sol";
+import { SplitterInstance } from "./SplitterInstance.sol";
 import { FlapperUniV2 } from "src/FlapperUniV2.sol";
 import { FlapperUniV2SwapOnly } from "src/FlapperUniV2SwapOnly.sol";
-import { FlapperMom } from "src/FlapperMom.sol";
+import { SplitterMom } from "src/SplitterMom.sol";
 import { OracleWrapper } from "src/OracleWrapper.sol";
+import { Splitter } from "src/Splitter.sol";
 
-// Deploy a Flapper instance
 library FlapperDeploy {
 
     function deployFlapperUniV2(
         address deployer,
         address owner,
-        address daiJoin,
         address spotter,
+        address usds,
         address gem,
         address pair,
         address receiver,
         bool    swapOnly
-    ) internal returns (FlapperInstance memory flapperInstance) {
-        address _flapper =
-            swapOnly ? address(new FlapperUniV2SwapOnly(daiJoin, spotter, gem, pair, receiver))
-                     : address(new FlapperUniV2(daiJoin, spotter, gem, pair, receiver))
+    ) internal returns (address flapper) {
+        flapper =
+            swapOnly ? address(new FlapperUniV2SwapOnly(spotter, usds, gem, pair, receiver))
+                     : address(new FlapperUniV2(spotter, usds, gem, pair, receiver))
         ;
-        address _mom = address(new FlapperMom(_flapper));
 
-        ScriptTools.switchOwner(_flapper, deployer, owner);
-        DSAuthAbstract(_mom).setOwner(owner);
-
-        flapperInstance.flapper = _flapper;
-        flapperInstance.mom     = _mom;
+        ScriptTools.switchOwner(flapper, deployer, owner);
     }
 
     function deployOracleWrapper(
@@ -57,5 +52,20 @@ library FlapperDeploy {
         uint256 divisor
     ) internal returns (address wrapper) {
         wrapper = address(new OracleWrapper(pip, flapper, divisor));
+    }
+
+    function deploySplitter(
+        address deployer,
+        address owner,
+        address usdsJoin
+    ) internal returns (SplitterInstance memory splitterInstance) {
+        address splitter = address(new Splitter(usdsJoin));
+        address mom = address(new SplitterMom(splitter));
+
+        ScriptTools.switchOwner(splitter, deployer, owner);
+        DSAuthAbstract(mom).setOwner(owner);
+
+        splitterInstance.splitter = splitter;
+        splitterInstance.mom      = mom;
     }
 }

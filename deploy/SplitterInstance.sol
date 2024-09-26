@@ -16,7 +16,7 @@
 
 pragma solidity >=0.8.0;
 
-struct FlapperInstance {
-    address flapper;
+struct SplitterInstance {
+    address splitter;
     address mom;
 }

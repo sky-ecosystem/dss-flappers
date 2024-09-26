@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.21;
 
 import "forge-std/Test.sol";
 
@@ -68,16 +68,16 @@ contract OracleWrapperTest is Test {
         // Emulate spell
         DssInstance memory dss = MCD.loadFromChainlog(LOG);
         vm.startPrank(PAUSE_PROXY);
-        FlapperInit.initOracleWrapper(dss, address(oracleWrapper), "ORACLE_WRAPPER");
+        FlapperInit.initOracleWrapper(dss, address(oracleWrapper), 1800, "ORACLE_WRAPPER");
         vm.stopPrank();
     }
 
-    function testInitsChainlogValue() public {
+    function testInitsChainlogValue() public view {
         DssInstance memory dss = MCD.loadFromChainlog(LOG);
         assertEq(dss.chainlog.getAddress("ORACLE_WRAPPER"), address(oracleWrapper));
     }
 
-    function testRead() public {
+    function testRead() public view {
         assertEq(oracleWrapper.read(), bytes32(medianizerPrice / 1800));
     }
 

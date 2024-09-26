@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.21;
 
-interface FlapperLike {
+interface SplitterLike {
     function file(bytes32, uint256) external;
 }
 
@@ -24,29 +24,29 @@ interface AuthorityLike {
     function canCall(address src, address dst, bytes4 sig) external view returns (bool);
 }
 
-// Bypass governance delay to disable the flapper instance
-contract FlapperMom {
+// Bypass governance delay to disable the splitter
+contract SplitterMom {
     address public owner;
     address public authority;
 
-    FlapperLike public immutable flapper;
+    SplitterLike public immutable splitter;
 
     event SetOwner(address indexed _owner);
     event SetAuthority(address indexed _authority);
     event Stop();
 
     modifier onlyOwner {
-        require(msg.sender == owner, "FlapperMom/only-owner");
+        require(msg.sender == owner, "SplitterMom/only-owner");
         _;
     }
 
     modifier auth {
-        require(isAuthorized(msg.sender, msg.sig), "FlapperMom/not-authorized");
+        require(isAuthorized(msg.sender, msg.sig), "SplitterMom/not-authorized");
         _;
     }
 
-    constructor(address _flapper) {
-        flapper = FlapperLike(_flapper);
+    constructor(address _splitter) {
+        splitter = SplitterLike(_splitter);
         
         owner = msg.sender;
         emit SetOwner(msg.sender);
@@ -77,7 +77,7 @@ contract FlapperMom {
 
     // Governance action without delay
     function stop() external auth {
-        flapper.file("hop", type(uint256).max);
+        splitter.file("hop", type(uint256).max);
         emit Stop();
     }
 }
