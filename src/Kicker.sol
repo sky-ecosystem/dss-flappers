@@ -23,11 +23,6 @@ interface VatLike {
     function suck(address, address, uint256) external;
 }
 
-interface VowLike {
-    function Sin() external view returns (uint256);
-    function Ash() external view returns (uint256);
-}
-
 interface SplitterLike {
     function kick(uint256, uint256) external returns (uint256);
 }
@@ -36,20 +31,20 @@ contract Kicker {
     // --- storage variables ---
 
     mapping(address usr => uint256 allowed) public wards;
-    uint256 public kbump;
-    int256  public khump;
+    uint256 public kbump; // Fixed lot size  [rad]
+    int256  public khump; // Allowance limit [rad]
 
     // --- immutables ---
 
     VatLike      public immutable vat;
-    VowLike      public immutable vow;
+    address      public immutable vow;
     SplitterLike public immutable splitter;
 
-    // --- immutables ---
+    // --- constructor ---
 
     constructor(address vat_, address vow_, address splitter_) {
         vat = VatLike(vat_);
-        vow = VowLike(vow_);
+        vow = vow_;
         splitter = SplitterLike(splitter_);
         vat.hope(splitter_);
 
@@ -108,7 +103,6 @@ contract Kicker {
 
     function flap() external returns (uint256 id) {
         require(_toInt256(vat.dai(address(vow))) >= _toInt256(vat.sin(address(vow))) + _toInt256(kbump) + khump, "Kicker/insufficient-allowance");
-        // require(vat.sin(address(vow)) - vow.Sin() - vow.Ash() == 0 || vat.dai(address(vow)) == 0 , "Kicker/not-healed");
         vat.suck(address(vow), address(this), kbump);
         id = splitter.kick(kbump, 0);
     }

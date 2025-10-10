@@ -32,12 +32,15 @@ interface ChainlogLike {
 }
 
 interface VatLike {
+    function wards(address) external view returns (uint256);
     function sin(address) external view returns (uint256);
     function dai(address) external view returns (uint256);
     function can(address, address) external view returns (uint256);
 }
 
 interface VowLike {
+    function bump() external view returns (uint256);
+    function hump() external view returns (uint256);
     function Sin() external view returns (uint256);
     function Ash() external view returns (uint256);
     function heal(uint256) external;
@@ -136,6 +139,13 @@ contract KickerTest is DssTest {
         FlapperInit.initKicker(dss, address(kicker), kickerCfg);
         vm.stopPrank();
 
+        assertEq(vow.bump(), 0);
+        assertEq(vow.hump(), type(uint256).max);
+        assertEq(kicker.kbump(), 5_000e45);
+        assertEq(kicker.khump(), -20_000e45);
+        assertEq(vat.wards(address(kicker)), 1);
+        assertEq(splitter.wards(address(kicker)), 1);
+        assertEq(splitter.wards(address(vow)), 0);
         assertEq(dss.chainlog.getAddress("KICK"), address(kicker));
 
         // Add initial liquidity if needed
