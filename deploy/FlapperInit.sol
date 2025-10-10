@@ -60,6 +60,7 @@ interface SplitterLike {
     function usdsJoin() external view returns (address);
     function hop() external view returns (uint256);
     function rely(address) external;
+    function deny(address) external;
     function file(bytes32, uint256) external;
     function file(bytes32, address) external;
 }
@@ -68,6 +69,11 @@ interface FarmLike {
     function rewardsToken() external view returns (address);
     function setRewardsDistribution(address) external;
     function setRewardsDuration(uint256) external;
+}
+
+interface KickerLike {
+    function file(bytes32, uint256) external;
+    function file(bytes32, int256) external;
 }
 
 struct FlapperUniV2Config {
@@ -97,6 +103,12 @@ struct SplitterConfig {
     bytes32 splitterChainlogKey;
     bytes32 prevMomChainlogKey;
     bytes32 momChainlogKey;
+}
+
+struct KickerConfig {
+    int256  khump;
+    uint256 kbump;
+    bytes32 chainlogKey;
 }
 
 library FlapperInit {
@@ -207,5 +219,27 @@ library FlapperInit {
         dss.chainlog.setAddress(cfg.splitterChainlogKey, splitterInstance.splitter);
         if (cfg.prevMomChainlogKey != bytes32(0)) dss.chainlog.removeAddress(cfg.prevMomChainlogKey);
         dss.chainlog.setAddress(cfg.momChainlogKey, address(mom));
+    }
+
+    function initKicker(
+        DssInstance  memory dss,
+        address             kicker,
+        KickerConfig memory cfg
+    ) internal {
+        require(cfg.kbump % RAY == 0,  "kbump not multiple of RAY");
+
+        address vow = dss.chainlog.getAddress("MCD_VOW");
+        SplitterLike splitter = SplitterLike(dss.chainlog.getAddress("MCD_SPLIT"));
+
+        // vow.file(vow)
+
+        KickerLike(kicker).file("khump", cfg.khump);
+        KickerLike(kicker).file("kbump", cfg.kbump);
+
+        dss.vat.rely(kicker);
+        SplitterLike(splitter).rely(kicker);
+        SplitterLike(splitter).deny(address(vow));
+
+        dss.chainlog.setAddress(cfg.chainlogKey, kicker);
     }
 }

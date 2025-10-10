@@ -17,6 +17,7 @@
 pragma solidity ^0.8.21;
 
 import "dss-interfaces/Interfaces.sol";
+import { MCD, DssInstance } from "dss-test/MCD.sol";
 import { ScriptTools } from "dss-test/ScriptTools.sol";
 
 import { SplitterInstance } from "./SplitterInstance.sol";
@@ -25,8 +26,11 @@ import { FlapperUniV2SwapOnly } from "src/FlapperUniV2SwapOnly.sol";
 import { SplitterMom } from "src/SplitterMom.sol";
 import { OracleWrapper } from "src/OracleWrapper.sol";
 import { Splitter } from "src/Splitter.sol";
+import { Kicker } from "src/Kicker.sol";
 
 library FlapperDeploy {
+
+    address constant LOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
     function deployFlapperUniV2(
         address deployer,
@@ -67,5 +71,19 @@ library FlapperDeploy {
 
         splitterInstance.splitter = splitter;
         splitterInstance.mom      = mom;
+    }
+
+    function deployKicker(
+        address deployer,
+        address owner
+    ) internal returns (address kicker) {
+        DssInstance memory dss = MCD.loadFromChainlog(LOG);
+
+        kicker = address(new Kicker(
+                                dss.chainlog.getAddress("MCD_VAT"),
+                                dss.chainlog.getAddress("MCD_VOW"),
+                                dss.chainlog.getAddress("MCD_SPLIT")));
+
+        ScriptTools.switchOwner(kicker, deployer, owner);
     }
 }
