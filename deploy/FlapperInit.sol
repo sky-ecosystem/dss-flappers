@@ -243,9 +243,7 @@ library FlapperInit {
         KickerLike(kicker).file("kbump", cfg.kbump);
 
         dss.vat.rely(kicker);
-        SplitterLike splitter = SplitterLike(dss.chainlog.getAddress("MCD_SPLIT"));
-        splitter.rely(kicker);
-        splitter.deny(address(vow));
+        SplitterLike(dss.chainlog.getAddress("MCD_SPLIT")).rely(kicker);
 
         dss.chainlog.setAddress(cfg.chainlogKey, kicker);
     }
