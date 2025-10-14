@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: © 2023 Dai Foundation <www.daifoundation.org>
+// SPDX-FileCopyrightText: © 2025 Dai Foundation <www.daifoundation.org>
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // This program is free software: you can redistribute it and/or modify
@@ -324,7 +324,7 @@ contract KickerTest is DssTest {
         }
     }
 
-    function _initForTestNegativeSurplus() internal {
+    function _initForTestWithSin() internal {
         stdstore.target(address(vow)).sig("Sin()").checked_write(
             uint256(0)
         );
@@ -340,8 +340,8 @@ contract KickerTest is DssTest {
         assertEq(vat.dai(address(vow)), 2_500e45);
     }
 
-    function _doKicksNegativeSurplus() internal {
-        _initForTestNegativeSurplus();
+    function _doKicksWithSin() internal {
+        _initForTestWithSin();
 
         _doKick();
 
@@ -371,8 +371,8 @@ contract KickerTest is DssTest {
         _doKick();
     }
 
-    function testFlapNegativeSurplus() public {
-        _doKicksNegativeSurplus();
+    function testFlapWithSin() public {
+        _doKicksWithSin();
     }
 
     function testFlapBurnOnly() public {
@@ -381,10 +381,10 @@ contract KickerTest is DssTest {
         _doKick();
     }
 
-    function testFlapNegativeSurplusBurnOnly() public {
+    function testFlapWithSinBurnOnly() public {
         vm.prank(pauseProxy); splitter.file("burn", WAD);
 
-        _doKicksNegativeSurplus();
+        _doKicksWithSin();
     }
 
     function testFlapZeroBurn() public {
@@ -393,10 +393,10 @@ contract KickerTest is DssTest {
         _doKick();
     }
 
-    function testFlapNegativeSurplusZeroBurn() public {
+    function testFlapWithSinZeroBurn() public {
         vm.prank(pauseProxy); splitter.file("burn", 0);
 
-        _doKicksNegativeSurplus();
+        _doKicksWithSin();
     }
 
     function testFlapNotLive() public {
