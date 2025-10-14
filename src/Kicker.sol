@@ -102,8 +102,8 @@ contract Kicker {
     // --- execution ---
 
     function flap() external returns (uint256 id) {
-        require(_toInt256(vat.dai(address(vow))) >= _toInt256(vat.sin(address(vow))) + _toInt256(kbump) + khump, "Kicker/insufficient-allowance");
-        vat.suck(address(vow), address(this), kbump);
+        require(_toInt256(vat.dai(vow)) >= _toInt256(vat.sin(vow)) + _toInt256(kbump) + khump, "Kicker/insufficient-allowance");
+        vat.suck(vow, address(this), kbump);
         id = splitter.kick(kbump, 0);
     }
 }
