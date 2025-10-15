@@ -31,8 +31,8 @@ contract Kicker {
     // --- storage variables ---
 
     mapping(address usr => uint256 allowed) public wards;
-    uint256 public kbump; // Fixed lot size  [rad]
-    int256  public khump; // Allowance limit [rad]
+    uint256 public kbump; // Fixed lot size [rad]
+    int256  public khump; // Flap threshold [rad]
 
     // --- immutables ---
 
@@ -102,7 +102,7 @@ contract Kicker {
     // --- execution ---
 
     function flap() external returns (uint256 id) {
-        require(_toInt256(vat.dai(vow)) >= _toInt256(vat.sin(vow)) + _toInt256(kbump) + khump, "Kicker/insufficient-allowance");
+        require(_toInt256(vat.dai(vow)) >= _toInt256(vat.sin(vow)) + _toInt256(kbump) + khump, "Kicker/flap-threshold-reached");
         vat.suck(vow, address(this), kbump);
         id = splitter.kick(kbump, 0);
     }

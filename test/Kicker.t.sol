@@ -39,7 +39,6 @@ interface VowLike {
     function bump() external view returns (uint256);
     function hump() external view returns (uint256);
     function Sin() external view returns (uint256);
-    function Ash() external view returns (uint256);
     function heal(uint256) external;
     function flap() external;
     function cage() external;
@@ -363,7 +362,7 @@ contract KickerTest is DssTest {
         assertEq(vat.sin(address(vow)), 17_500e45);
         assertEq(vat.dai(address(vow)), 0);
 
-        vm.expectRevert("Kicker/insufficient-allowance");
+        vm.expectRevert("Kicker/flap-threshold-reached");
         kicker.flap();
     }
 

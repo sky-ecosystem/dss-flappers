@@ -60,7 +60,6 @@ interface SplitterLike {
     function usdsJoin() external view returns (address);
     function hop() external view returns (uint256);
     function rely(address) external;
-    function deny(address) external;
     function file(bytes32, uint256) external;
     function file(bytes32, address) external;
 }
@@ -72,13 +71,11 @@ interface FarmLike {
 }
 
 interface KickerLike {
+    function vat() external view returns (address);
+    function vow() external view returns (address);
+    function splitter() external view returns (address);
     function file(bytes32, uint256) external;
     function file(bytes32, int256) external;
-}
-
-interface VowLike {
-    function sump() external view returns (uint256);
-    function file(bytes32, uint256) external;
 }
 
 struct FlapperUniV2Config {
@@ -233,17 +230,21 @@ library FlapperInit {
     ) internal {
         require(cfg.kbump % RAY == 0,  "kbump not multiple of RAY");
 
-        VowLike vow = VowLike(dss.chainlog.getAddress("MCD_VOW"));
-        require(vow.sump() == type(uint256).max, "flop is not inactive");
+        address splitter = dss.chainlog.getAddress("MCD_SPLIT");
+        require(KickerLike(kicker).vat() == address(dss.vat), "vat missmatch");
+        require(KickerLike(kicker).vow() == address(dss.vow), "vow missmatch");
+        require(KickerLike(kicker).splitter() == splitter, "splitter missmatch");
 
-        vow.file("bump", 0);
-        vow.file("hump", type(uint256).max);
+        require(dss.vow.sump() == type(uint256).max, "flop is not inactive");
+
+        dss.vow.file("bump", 0);
+        dss.vow.file("hump", type(uint256).max);
 
         KickerLike(kicker).file("khump", cfg.khump);
         KickerLike(kicker).file("kbump", cfg.kbump);
 
         dss.vat.rely(kicker);
-        SplitterLike(dss.chainlog.getAddress("MCD_SPLIT")).rely(kicker);
+        SplitterLike(splitter).rely(kicker);
 
         dss.chainlog.setAddress(cfg.chainlogKey, kicker);
     }
