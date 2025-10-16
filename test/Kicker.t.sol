@@ -28,22 +28,6 @@ interface ChainlogLike {
     function getAddress(bytes32) external view returns (address);
 }
 
-interface VatLike {
-    function wards(address) external view returns (uint256);
-    function sin(address) external view returns (uint256);
-    function dai(address) external view returns (uint256);
-    function can(address, address) external view returns (uint256);
-}
-
-interface VowLike {
-    function bump() external view returns (uint256);
-    function hump() external view returns (uint256);
-    function Sin() external view returns (uint256);
-    function heal(uint256) external;
-    function flap() external;
-    function cage() external;
-}
-
 interface PairLike {
     function mint(address) external returns (uint256);
     function sync() external;
@@ -72,16 +56,15 @@ interface FileLike2 is FileLike {
 contract KickerTest is DssTest {
     using stdStorage for StdStorage;
 
-    VatLike              vat;
-    VowLike              vow;
-    Splitter             splitter;
-    StakingRewardsLike   farm;
-    Kicker               kicker;
-    MedianizerLike       medianizer;
+    DssInstance          dss;
     address              pauseProxy;
     address              usds;
     address              sky;
     address              usdsJoin;
+    Splitter             splitter;
+    MedianizerLike       medianizer;
+    StakingRewardsLike   farm;
+    Kicker               kicker;
 
     address LOG                 = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
     address UNIV2_FACTORY       = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
@@ -92,14 +75,13 @@ contract KickerTest is DssTest {
     function setUp() public {
         vm.createSelectFork(vm.envString("ETH_RPC_URL"));
 
+        dss = MCD.loadFromChainlog(LOG);
         pauseProxy = ChainlogLike(LOG).getAddress("MCD_PAUSE_PROXY");
         usds = ChainlogLike(LOG).getAddress("USDS");
         sky = ChainlogLike(LOG).getAddress("SKY");
         usdsJoin = ChainlogLike(LOG).getAddress("USDS_JOIN");
         splitter = Splitter(ChainlogLike(LOG).getAddress("MCD_SPLIT"));
         medianizer = MedianizerLike(ChainlogLike(LOG).getAddress("FLAP_SKY_ORACLE"));
-        vat = VatLike(ChainlogLike(LOG).getAddress("MCD_VAT"));
-        vow = VowLike(ChainlogLike(LOG).getAddress("MCD_VOW"));
         farm = StakingRewardsLike(ChainlogLike(LOG).getAddress("REWARDS_LSSKY_USDS"));
 
         kicker = Kicker(FlapperDeploy.deployKicker({
@@ -114,15 +96,16 @@ contract KickerTest is DssTest {
             kbump:       5_000e45,
             chainlogKey: "KICK"
         });
-        DssInstance memory dss = MCD.loadFromChainlog(LOG);
         FlapperInit.initKicker(dss, address(kicker), kickerCfg);
         vm.stopPrank();
 
-        assertEq(vow.bump(), 0);
-        assertEq(vow.hump(), type(uint256).max);
+        assertEq(dss.vow.bump(), 0);
+        assertEq(dss.vow.hump(), type(uint256).max);
+        assertEq(dss.vow.dump(), 0);
+        assertEq(dss.vow.sump(), type(uint256).max);
         assertEq(kicker.kbump(), 5_000e45);
         assertEq(kicker.khump(), -20_000e45);
-        assertEq(vat.wards(address(kicker)), 1);
+        assertEq(dss.vat.wards(address(kicker)), 1);
         assertEq(splitter.wards(address(kicker)), 1);
         assertEq(dss.chainlog.getAddress("KICK"), address(kicker));
 
@@ -187,12 +170,12 @@ contract KickerTest is DssTest {
     function testConstructor() public {
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
-        Kicker k = new Kicker(address(vat), address(vow), address(splitter));
+        Kicker k = new Kicker(address(dss.vow), address(splitter));
 
-        assertEq(address(k.vat()), address(vat));
-        assertEq(address(k.vow()), address(vow));
+        assertEq(address(k.vat()), address(dss.vat));
+        assertEq(address(k.vow()), address(dss.vow));
         assertEq(address(k.splitter()), address(splitter));
-        assertEq(vat.can(address(kicker), address(splitter)), 1);
+        assertEq(dss.vat.can(address(kicker), address(splitter)), 1);
         assertEq(k.wards(address(this)), 1);
     }
 
@@ -274,7 +257,7 @@ contract KickerTest is DssTest {
         }
 
         vm.expectRevert();
-        vow.flap();
+        dss.vow.flap();
         kicker.flap();
     }
 
@@ -283,8 +266,8 @@ contract KickerTest is DssTest {
             vm.warp(splitter.zzz() + splitter.hop());
         }
 
-        uint256 initialVowVatDai = vat.dai(address(vow));
-        uint256 initialUsdsJoinVatDai = vat.dai(usdsJoin);
+        uint256 initialVowVatDai = dss.vat.dai(address(dss.vow));
+        uint256 initialUsdsJoinVatDai = dss.vat.dai(usdsJoin);
         uint256 initialSky = GemLike(sky).balanceOf(pauseProxy);
         uint256 initialReserveUsds = GemLike(usds).balanceOf(UNIV2_SKY_USDS_PAIR);
         uint256 initialReserveSky = GemLike(sky).balanceOf(UNIV2_SKY_USDS_PAIR);
@@ -297,12 +280,12 @@ contract KickerTest is DssTest {
         vm.expectEmit(false, false, false, true);
         emit Kick(kicker.kbump(), kicker.kbump() * splitter.burn() / RAD, farmReward);
         kicker.flap();
-        vow.heal(_min(kicker.kbump(), vat.dai(address(vow))));
+        dss.vow.heal(_min(kicker.kbump(), dss.vat.dai(address(dss.vow))));
 
-        assertEq(vat.dai(address(vow)), initialVowVatDai > kicker.kbump() ? initialVowVatDai - kicker.kbump() : 0);
-        assertEq(vat.dai(usdsJoin), initialUsdsJoinVatDai + kicker.kbump());
-        assertEq(vat.dai(address(splitter)), 0);
-        assertEq(vat.dai(address(kicker)), 0);
+        assertEq(dss.vat.dai(address(dss.vow)), initialVowVatDai > kicker.kbump() ? initialVowVatDai - kicker.kbump() : 0);
+        assertEq(dss.vat.dai(usdsJoin), initialUsdsJoinVatDai + kicker.kbump());
+        assertEq(dss.vat.dai(address(splitter)), 0);
+        assertEq(dss.vat.dai(address(kicker)), 0);
 
         assertEq(GemLike(usds).balanceOf(UNIV2_SKY_USDS_PAIR), initialReserveUsds + kicker.kbump() * splitter.burn() / RAD);
         if (splitter.burn() == 0) {
@@ -324,19 +307,19 @@ contract KickerTest is DssTest {
     }
 
     function _initForTestWithSin() internal {
-        stdstore.target(address(vow)).sig("Sin()").checked_write(
+        stdstore.target(address(dss.vow)).sig("Sin()").checked_write(
             uint256(0)
         );
-        stdstore.target(address(vat)).sig("sin(address)").with_key(address(vow)).depth(0).checked_write(
+        stdstore.target(address(dss.vat)).sig("sin(address)").with_key(address(dss.vow)).depth(0).checked_write(
             uint256(0)
         );
-        stdstore.target(address(vat)).sig("dai(address)").with_key(address(vow)).depth(0).checked_write(
+        stdstore.target(address(dss.vat)).sig("dai(address)").with_key(address(dss.vow)).depth(0).checked_write(
             uint256(2_500e45)
         );
 
-        assertEq(vow.Sin(), 0);
-        assertEq(vat.sin(address(vow)), 0);
-        assertEq(vat.dai(address(vow)), 2_500e45);
+        assertEq(dss.vow.Sin(), 0);
+        assertEq(dss.vat.sin(address(dss.vow)), 0);
+        assertEq(dss.vat.dai(address(dss.vow)), 2_500e45);
     }
 
     function _doKicksWithSin() internal {
@@ -344,25 +327,25 @@ contract KickerTest is DssTest {
 
         _doKick();
 
-        assertEq(vat.sin(address(vow)), 2_500e45);
-        assertEq(vat.dai(address(vow)), 0);
+        assertEq(dss.vat.sin(address(dss.vow)), 2_500e45);
+        assertEq(dss.vat.dai(address(dss.vow)), 0);
 
         _doKick();
 
-        assertEq(vat.sin(address(vow)), 7_500e45);
-        assertEq(vat.dai(address(vow)), 0);
+        assertEq(dss.vat.sin(address(dss.vow)), 7_500e45);
+        assertEq(dss.vat.dai(address(dss.vow)), 0);
 
         _doKick();
 
-        assertEq(vat.sin(address(vow)), 12_500e45);
-        assertEq(vat.dai(address(vow)), 0);
+        assertEq(dss.vat.sin(address(dss.vow)), 12_500e45);
+        assertEq(dss.vat.dai(address(dss.vow)), 0);
 
         _doKick();
 
-        assertEq(vat.sin(address(vow)), 17_500e45);
-        assertEq(vat.dai(address(vow)), 0);
+        assertEq(dss.vat.sin(address(dss.vow)), 17_500e45);
+        assertEq(dss.vat.dai(address(dss.vow)), 0);
 
-        vm.expectRevert("Kicker/flap-threshold-reached");
+        vm.expectRevert("Kicker/flap-threshold-not-reached");
         kicker.flap();
     }
 
@@ -400,7 +383,7 @@ contract KickerTest is DssTest {
 
     function testFlapNotLive() public {
         assertEq(splitter.live(), 1);
-        vm.prank(pauseProxy); vow.cage();
+        vm.prank(pauseProxy); dss.vow.cage();
         assertEq(splitter.live(), 0);
         vm.expectRevert("Splitter/not-live");
         kicker.flap();

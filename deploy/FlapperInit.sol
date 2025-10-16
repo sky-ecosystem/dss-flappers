@@ -231,14 +231,13 @@ library FlapperInit {
         require(cfg.kbump % RAY == 0,  "kbump not multiple of RAY");
 
         address splitter = dss.chainlog.getAddress("MCD_SPLIT");
-        require(KickerLike(kicker).vat() == address(dss.vat), "vat missmatch");
         require(KickerLike(kicker).vow() == address(dss.vow), "vow missmatch");
         require(KickerLike(kicker).splitter() == splitter, "splitter missmatch");
 
-        require(dss.vow.sump() == type(uint256).max, "flop is not inactive");
-
         dss.vow.file("bump", 0);
         dss.vow.file("hump", type(uint256).max);
+        dss.vow.file("dump", 0);
+        dss.vow.file("sump", type(uint256).max);
 
         KickerLike(kicker).file("khump", cfg.khump);
         KickerLike(kicker).file("kbump", cfg.kbump);

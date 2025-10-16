@@ -24,6 +24,7 @@ interface VatLike {
 }
 
 interface SplitterLike {
+    function vat() external view returns (VatLike);
     function kick(uint256, uint256) external returns (uint256);
 }
 
@@ -42,10 +43,10 @@ contract Kicker {
 
     // --- constructor ---
 
-    constructor(address vat_, address vow_, address splitter_) {
-        vat = VatLike(vat_);
+    constructor(address vow_, address splitter_) {
         vow = vow_;
         splitter = SplitterLike(splitter_);
+        vat = splitter.vat();
         vat.hope(splitter_);
 
         wards[msg.sender] = 1;
@@ -102,7 +103,7 @@ contract Kicker {
     // --- execution ---
 
     function flap() external returns (uint256 id) {
-        require(_toInt256(vat.dai(vow)) >= _toInt256(vat.sin(vow)) + _toInt256(kbump) + khump, "Kicker/flap-threshold-reached");
+        require(_toInt256(vat.dai(vow)) >= _toInt256(vat.sin(vow)) + _toInt256(kbump) + khump, "Kicker/flap-threshold-not-reached");
         vat.suck(vow, address(this), kbump);
         id = splitter.kick(kbump, 0);
     }

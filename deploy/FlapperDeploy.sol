@@ -80,7 +80,6 @@ library FlapperDeploy {
         DssInstance memory dss = MCD.loadFromChainlog(LOG);
 
         kicker = address(new Kicker(
-                                dss.chainlog.getAddress("MCD_VAT"),
                                 dss.chainlog.getAddress("MCD_VOW"),
                                 dss.chainlog.getAddress("MCD_SPLIT")));
 
