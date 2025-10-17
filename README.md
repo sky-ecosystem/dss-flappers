@@ -11,12 +11,12 @@ Configurable Parameters:
 * `kbump` - Fixed lot size (`RAD` precision)
 * `khump` - Flap threshold (`RAD` precision, signed integer value).
 
-Note: It is assumed that the `Flop` auctions mechanism is disabled and remain in that state. As otherwise it could collide with the above mechanism.
+Note: It is assumed that the `Flop` auctions mechanism is disabled and remains in that state. As otherwise it could collide with the above mechanism.
 Currently this is done through the configuration of `Vow.sump` as max uint256 (aka infinity).
 
 Note 2: Rate limiting is ensured via the `Splitter`.
 
-Note 3: Stop functionality is implemented via the `Splitter.cage` function (reason to leave the `Splitter` as `flap` reference in the `Vow` and the `wards` still set). However, even if `Vow.cage` remains functional, in order to execute `End.cage` it is still necessary a deep analysis and prior actions in different modules to be executed successfully.
+Note 3: Stop functionality is implemented via the `Splitter.cage` function (reason to leave the `Splitter` as `flapper` reference in the `Vow` and the `wards` still set). However, even if `Vow.cage` remains functional, in order to execute `End.cage` it is still necessary a deep analysis and prior actions in different modules to be executed successfully.
 
 ### Splitter
 

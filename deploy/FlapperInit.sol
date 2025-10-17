@@ -231,8 +231,8 @@ library FlapperInit {
         require(cfg.kbump % RAY == 0,  "kbump not multiple of RAY");
 
         address splitter = dss.chainlog.getAddress("MCD_SPLIT");
-        require(KickerLike(kicker).vow() == address(dss.vow), "vow missmatch");
-        require(KickerLike(kicker).splitter() == splitter, "splitter missmatch");
+        require(KickerLike(kicker).vow() == address(dss.vow), "vow mismatch");
+        require(KickerLike(kicker).splitter() == splitter, "splitter mismatch");
 
         dss.vow.file("bump", 0);
         dss.vow.file("hump", type(uint256).max);
