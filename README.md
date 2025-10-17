@@ -16,7 +16,7 @@ Currently this is done through the configuration of `Vow.sump` as max uint256 (a
 
 Note 2: Rate limiting is ensured via the `Splitter`.
 
-Note 3: Stop functionality is implemented via the `Splitter.cage` function (reason to leave the `Splitter` as `flap` reference in the `Vow` and the `wards` still set).
+Note 3: Stop functionality is implemented via the `Splitter.cage` function (reason to leave the `Splitter` as `flap` reference in the `Vow` and the `wards` still set). However, even if `Vow.cage` remains functional, in order to execute `End.cage` it is still necessary a deep analysis and prior actions in different modules to be executed successfully.
 
 ### Splitter
 
