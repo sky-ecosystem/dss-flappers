@@ -70,6 +70,14 @@ interface FarmLike {
     function setRewardsDuration(uint256) external;
 }
 
+interface KickerLike {
+    function vat() external view returns (address);
+    function vow() external view returns (address);
+    function splitter() external view returns (address);
+    function file(bytes32, uint256) external;
+    function file(bytes32, int256) external;
+}
+
 struct FlapperUniV2Config {
     uint256 want;
     address pip;
@@ -97,6 +105,12 @@ struct SplitterConfig {
     bytes32 splitterChainlogKey;
     bytes32 prevMomChainlogKey;
     bytes32 momChainlogKey;
+}
+
+struct KickerConfig {
+    int256  khump;
+    uint256 kbump;
+    bytes32 chainlogKey;
 }
 
 library FlapperInit {
@@ -207,5 +221,30 @@ library FlapperInit {
         dss.chainlog.setAddress(cfg.splitterChainlogKey, splitterInstance.splitter);
         if (cfg.prevMomChainlogKey != bytes32(0)) dss.chainlog.removeAddress(cfg.prevMomChainlogKey);
         dss.chainlog.setAddress(cfg.momChainlogKey, address(mom));
+    }
+
+    function initKicker(
+        DssInstance  memory dss,
+        address             kicker,
+        KickerConfig memory cfg
+    ) internal {
+        require(cfg.kbump % RAY == 0,  "kbump not multiple of RAY");
+
+        address splitter = dss.chainlog.getAddress("MCD_SPLIT");
+        require(KickerLike(kicker).vow() == address(dss.vow), "vow mismatch");
+        require(KickerLike(kicker).splitter() == splitter, "splitter mismatch");
+
+        dss.vow.file("bump", 0);
+        dss.vow.file("hump", type(uint256).max);
+        dss.vow.file("dump", 0);
+        dss.vow.file("sump", type(uint256).max);
+
+        KickerLike(kicker).file("khump", cfg.khump);
+        KickerLike(kicker).file("kbump", cfg.kbump);
+
+        dss.vat.rely(kicker);
+        SplitterLike(splitter).rely(kicker);
+
+        dss.chainlog.setAddress(cfg.chainlogKey, kicker);
     }
 }
