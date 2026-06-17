@@ -73,11 +73,12 @@ A bounded, rate-limited parameter setter for the Smart Burn Engine. It allows a 
 For each knob, governance configures a `Cfg` range through `file(id, what, data)`:
 * `min` - Minimum allowed value.
 * `max` - Maximum allowed value.
-* `step` - Maximum allowed change per `set` call (a value of `0` means the knob is not configured and `set` will revert).
+* `step` - Maximum allowed change per `set` call, expressed in basis points (`bps`, where `10000` = 100%) relative to the parameter's current value. A value of `0` freezes the knob (only a no-op rewrite is allowed).
 
-The delta on each `set` is measured against the parameter's current on-chain value (clamped into `[min, max]` first), so a single call can never move a value outside its range or by more than `step`.
+The delta on each `set` is measured against the parameter's current on-chain value (clamped into `[min, max]` first); the move is rejected if it exceeds `current * step / 10000` or would leave `[min, max]`. Because `step` is relative, the same configured value throttles consistently regardless of the parameter's absolute magnitude.
 
 Configurable Parameters:
+* `ratioStep` - Maximum allowed change of the `kbump / hop` ratio (the total surplus throughput) per `set` call, in `bps` relative to its current value. This bounds how fast the combined throughput can move even when each individual knob stays within its own `step`.
 * `tau` - Cooldown period (in seconds) enforced between consecutive `set` calls.
 * `toc` - Timestamp of the last `set` call.
 

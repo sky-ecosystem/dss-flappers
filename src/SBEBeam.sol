@@ -41,7 +41,7 @@ contract SBEBeam {
     Cfg     public kbumpCfg;  // [rad]     Range for Kicker.kbump
     Cfg     public burnCfg;   // [wad]     Range for Splitter.burn
     Cfg     public hopCfg;    // [seconds] Range for Splitter.hop (also applied to farm.rewardsDuration)
-    uint256 public ratioStep; // Maximum allowed ratio (kbump / hop) change per update
+    uint256 public ratioStep; // [bps]     Maximum allowed ratio (kbump / hop) change per update, relative to its current value
     uint64  public tau;       // Cooldown period between set() calls in seconds
     uint128 public toc;       // Last time when set() was called (Unix timestamp)
 
@@ -50,7 +50,7 @@ contract SBEBeam {
     struct Cfg {
         uint256 min;  // Minimum allowed value
         uint256 max;  // Maximum allowed value
-        uint256 step; // Maximum allowed change per update
+        uint256 step; // [bps] Maximum allowed change per update, relative to the current value
     }
 
     // --- immutables ---
@@ -58,6 +58,10 @@ contract SBEBeam {
     KickerLike    public immutable kicker;
     SplitterLike  public immutable splitter;
     FarmOwnerLike public immutable farmOwner;
+
+    // --- constants ---
+
+    uint256 internal constant BPS = 100_00;
 
     // --- events ---
 
@@ -164,7 +168,7 @@ contract SBEBeam {
         }
 
         uint256 delta = val > old ? val - old : old - val;
-        require(delta <= cfg.step, string(abi.encodePacked("SBEBeam/", field, "-delta-above-step")));
+        require(delta <= old * cfg.step / BPS, string(abi.encodePacked("SBEBeam/", field, "-delta-above-step")));
     }
 
     // --- execution ---
@@ -186,7 +190,7 @@ contract SBEBeam {
         uint256 newRatio  = kbump / hop;
 
         uint256 delta = prevRatio > newRatio ? prevRatio - newRatio : newRatio - prevRatio;
-        require(delta <= ratioStep, "SBEBeam/ratio-delta-above-step");
+        require(delta <= prevRatio * ratioStep / BPS, "SBEBeam/ratio-delta-above-step");
 
         kicker.file("kbump", kbump);
         splitter.file("burn", burn);
