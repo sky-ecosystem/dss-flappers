@@ -29,19 +29,19 @@ import {
     SBEBeamRangeConfig
 } from "deploy/FlapperInit.sol";
 
-interface StakingRewardsLike {
+interface FarmLike {
     function owner() external view returns (address);
     function rewardsDuration() external view returns (uint256);
     function setRewardsDuration(uint256) external;
 }
 
 contract SBEBeamTest is DssTest {
-    DssInstance         dss;
-    Splitter            splitter;
-    Kicker              kicker;
-    StakingRewardsLike  farm;
-    FarmOwner           farmOwner;
-    SBEBeam             beam;
+    DssInstance dss;
+    Splitter    splitter;
+    Kicker      kicker;
+    FarmLike    farm;
+    FarmOwner   farmOwner;
+    SBEBeam     beam;
 
     address pauseProxy;
 
@@ -61,7 +61,7 @@ contract SBEBeamTest is DssTest {
         pauseProxy = dss.chainlog.getAddress("MCD_PAUSE_PROXY");
         splitter   = Splitter(dss.chainlog.getAddress("MCD_SPLIT"));
         kicker     = Kicker(dss.chainlog.getAddress("MCD_KICK"));
-        farm       = StakingRewardsLike(address(splitter.farm()));
+        farm       = FarmLike(address(splitter.farm()));
 
         // Seed values in-range for the ranges configured below and align the
         // farm's rewardsDuration with splitter.hop. Do this while pauseProxy
@@ -110,7 +110,7 @@ contract SBEBeamTest is DssTest {
     // --- constructor / admin ---
 
     function testConstructor() public {
-        vm.expectEmit(true, true, true, true);
+        vm.expectEmit();
         emit Rely(address(this));
         SBEBeam b = new SBEBeam(address(kicker), address(farmOwner));
 
@@ -125,11 +125,34 @@ contract SBEBeamTest is DssTest {
     }
 
     function testAuthMethods() public {
-        checkModifier(address(beam), "SBEBeam/not-authorized", [SBEBeam.kiss.selector, SBEBeam.diss.selector]);
+        checkModifier(address(beam), "SBEBeam/not-authorized", [
+            SBEBeam.kiss.selector,
+            SBEBeam.diss.selector,
+            bytes4(keccak256("file(bytes32,bytes32,uint256)"))
+        ]);
     }
 
     function testTollMethods() public {
         checkModifier(address(beam), "SBEBeam/not-facilitator", [SBEBeam.set.selector]);
+    }
+
+    // --- kiss / diss ---
+
+    function testKissDiss() public {
+        address usr = address(0xABCD);
+        assertEq(beam.buds(usr), 0);
+
+        vm.expectEmit();
+        emit Kiss(usr);
+        vm.prank(pauseProxy);
+        beam.kiss(usr);
+        assertEq(beam.buds(usr), 1);
+
+        vm.expectEmit();
+        emit Diss(usr);
+        vm.prank(pauseProxy);
+        beam.diss(usr);
+        assertEq(beam.buds(usr), 0);
     }
 
     function testFileUint() public {
@@ -138,7 +161,7 @@ contract SBEBeamTest is DssTest {
 
     function testFileBad() public {
         vm.startPrank(pauseProxy);
-        vm.expectEmit(true, false, false, true);
+        vm.expectEmit();
         emit File("bad", uint256(1));
         beam.file("bad", 1);
         assertEq(beam.bad(), 1);
@@ -186,15 +209,15 @@ contract SBEBeamTest is DssTest {
         for (uint256 i; i < ids.length; i++) {
             bytes32 id = ids[i];
 
-            vm.expectEmit(true, true, false, true);
+            vm.expectEmit();
             emit File(id, "min", uint256(42));
             beam.file(id, "min", 42);
 
-            vm.expectEmit(true, true, false, true);
+            vm.expectEmit();
             emit File(id, "max", uint256(105));
             beam.file(id, "max", 105);
 
-            vm.expectEmit(true, true, false, true);
+            vm.expectEmit();
             emit File(id, "step", uint256(7));
             beam.file(id, "step", 7);
 
@@ -237,25 +260,6 @@ contract SBEBeamTest is DssTest {
         beam.file("kbump", "unknown", 1);
     }
 
-    // --- kiss / diss ---
-
-    function testKissDiss() public {
-        address usr = address(0xABCD);
-        assertEq(beam.buds(usr), 0);
-
-        vm.expectEmit(true, false, false, false);
-        emit Kiss(usr);
-        vm.prank(pauseProxy);
-        beam.kiss(usr);
-        assertEq(beam.buds(usr), 1);
-
-        vm.expectEmit(true, false, false, false);
-        emit Diss(usr);
-        vm.prank(pauseProxy);
-        beam.diss(usr);
-        assertEq(beam.buds(usr), 0);
-    }
-
     // --- set() happy path ---
 
     function testSet() public {
@@ -263,7 +267,7 @@ contract SBEBeamTest is DssTest {
         uint256 newBurn  = 0.8e18;
         uint256 newHop   = 2 hours;
 
-        vm.expectEmit(false, false, false, true);
+        vm.expectEmit();
         emit Set(newKbump, newBurn, newHop);
         vm.prank(bud);
         beam.set(newKbump, newBurn, newHop);
@@ -281,7 +285,7 @@ contract SBEBeamTest is DssTest {
         uint256 burn_  = splitter.burn();
         uint256 hop_   = splitter.hop();
 
-        vm.expectEmit(false, false, false, true);
+        vm.expectEmit();
         emit Set(kbump_, burn_, hop_);
         vm.prank(bud);
         beam.set(kbump_, burn_, hop_);
