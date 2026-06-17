@@ -38,18 +38,19 @@ contract SBEBeam {
 
     mapping(address => uint256) public wards;
     mapping(address => uint256) public buds;
-    Cfg     public kbumpCfg; // [rad]     Range for Kicker.kbump
-    Cfg     public burnCfg;  // [wad]     Range for Splitter.burn
-    Cfg     public hopCfg;   // [seconds] Range for Splitter.hop (also applied to farm.rewardsDuration)
-    uint64  public tau;      // Cooldown period between set() calls in seconds
-    uint128 public toc;      // Last time when set() was called (Unix timestamp)
+    Cfg     public kbumpCfg;  // [rad]     Range for Kicker.kbump
+    Cfg     public burnCfg;   // [wad]     Range for Splitter.burn
+    Cfg     public hopCfg;    // [seconds] Range for Splitter.hop (also applied to farm.rewardsDuration)
+    uint256 public ratioStep; // Maximum allowed ratio (kbump / hop) change per update
+    uint64  public tau;       // Cooldown period between set() calls in seconds
+    uint128 public toc;       // Last time when set() was called (Unix timestamp)
 
     // --- structs ---
 
     struct Cfg {
         uint256 min;  // Minimum allowed value
         uint256 max;  // Maximum allowed value
-        uint256 step; // Maximum allowed change per update (0 means "not configured")
+        uint256 step; // Maximum allowed change per update
     }
 
     // --- immutables ---
@@ -119,7 +120,9 @@ contract SBEBeam {
     }
 
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "tau") {
+        if (what == "ratioStep") {
+            ratioStep = data;
+        } else if (what == "tau") {
             require(data <= type(uint64).max, "SBEBeam/invalid-tau-value");
             tau = uint64(data);
         } else if (what == "toc") {
@@ -150,10 +153,9 @@ contract SBEBeam {
 
     // --- internals ---
 
-    function _check(uint256 val, uint256 old, Cfg memory cfg) internal pure {
-        require(cfg.step > 0,   "SBEBeam/value-not-configured");
-        require(val >= cfg.min, "SBEBeam/below-min");
-        require(val <= cfg.max, "SBEBeam/above-max");
+    function _check(string memory field, uint256 val, uint256 old, Cfg memory cfg) internal pure {
+        require(val >= cfg.min, string(abi.encodePacked("SBEBeam/", field, "-below-min")));
+        require(val <= cfg.max, string(abi.encodePacked("SBEBeam/", field, "-above-max")));
 
         if (old < cfg.min) {
             old = cfg.min;
@@ -162,7 +164,7 @@ contract SBEBeam {
         }
 
         uint256 delta = val > old ? val - old : old - val;
-        require(delta <= cfg.step, "SBEBeam/delta-above-step");
+        require(delta <= cfg.step, string(abi.encodePacked("SBEBeam/", field, "-delta-above-step")));
     }
 
     // --- execution ---
@@ -173,14 +175,26 @@ contract SBEBeam {
         require(block.timestamp >= tau + toc, "SBEBeam/too-early");
         toc = uint128(block.timestamp);
 
-        _check(kbump, kicker.kbump(),  kbumpCfg);
-        _check(burn,  splitter.burn(), burnCfg);
-        _check(hop,   splitter.hop(),  hopCfg);
+        uint256 prevKbump = kicker.kbump();
+        uint256 prevHop = splitter.hop();
+
+        _check("kbump", kbump, prevKbump,       kbumpCfg);
+        _check("burn",  burn,  splitter.burn(), burnCfg);
+        _check("hop",   hop,   prevHop,         hopCfg);
+
+        uint256 prevRatio = prevKbump / prevHop;
+        uint256 newRatio  = kbump / hop;
+
+        uint256 delta = prevRatio > newRatio ? prevRatio - newRatio : newRatio - prevRatio;
+        require(delta <= ratioStep, "SBEBeam/ratio-delta-above-step");
 
         kicker.file("kbump", kbump);
         splitter.file("burn", burn);
-        splitter.file("hop", hop);
-        farmOwner.setRewardsDuration(hop);
+        if (hop != prevHop) {
+            // Avoid to extend duration of current stream if hop did not change
+            splitter.file("hop", hop);
+            farmOwner.setRewardsDuration(hop);
+        }
 
         emit Set(kbump, burn, hop);
     }

@@ -139,6 +139,7 @@ struct SBEBeamRangeConfig {
 }
 
 struct SBEBeamConfig {
+    uint256             ratioStep;
     uint256             tau;
     SBEBeamRangeConfig  kbump;
     SBEBeamRangeConfig  burn;
@@ -311,6 +312,7 @@ library FlapperInit {
         require(SBEBeamLike(beam).splitter()  == splitter,  "SBEBeam splitter mismatch");
         require(SBEBeamLike(beam).farmOwner() == farmOwner, "SBEBeam farmOwner mismatch");
 
+        SBEBeamLike(beam).file("ratioStep", cfg.ratioStep);
         SBEBeamLike(beam).file("tau", cfg.tau);
 
         SBEBeamLike(beam).file("kbump", "max",  cfg.kbump.max);
