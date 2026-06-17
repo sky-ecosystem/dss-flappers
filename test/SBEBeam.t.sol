@@ -159,24 +159,6 @@ contract SBEBeamTest is DssTest {
         checkFileUint(address(beam), "SBEBeam", ["tau", "toc"]);
     }
 
-    function testFileBad() public {
-        vm.startPrank(pauseProxy);
-        vm.expectEmit();
-        emit File("bad", uint256(1));
-        beam.file("bad", 1);
-        assertEq(beam.bad(), 1);
-
-        beam.file("bad", 0);
-        assertEq(beam.bad(), 0);
-        vm.stopPrank();
-    }
-
-    function testFileBadInvalid() public {
-        vm.prank(pauseProxy);
-        vm.expectRevert("SBEBeam/invalid-bad-value");
-        beam.file("bad", 2);
-    }
-
     function testFileTauOverflow() public {
         vm.prank(pauseProxy);
         vm.expectRevert("SBEBeam/invalid-tau-value");
@@ -296,8 +278,10 @@ contract SBEBeamTest is DssTest {
     // --- set() gating ---
 
     function testSetModuleHalted() public {
+        // Halting the burn engine (Splitter.hop == type(uint256).max) also halts the beam,
+        // so a facilitator cannot use set() to revive a governance-stopped engine.
         vm.prank(pauseProxy);
-        beam.file("bad", 1);
+        splitter.file("hop", type(uint256).max);
         vm.expectRevert("SBEBeam/module-halted");
         vm.prank(bud);
         beam.set(5_000e45, 0.5e18, 1 hours);

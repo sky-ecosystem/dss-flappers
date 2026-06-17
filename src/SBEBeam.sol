@@ -41,7 +41,6 @@ contract SBEBeam {
     Cfg     public kbumpCfg; // [rad]     Range for Kicker.kbump
     Cfg     public burnCfg;  // [wad]     Range for Splitter.burn
     Cfg     public hopCfg;   // [seconds] Range for Splitter.hop (also applied to farm.rewardsDuration)
-    uint8   public bad;      // Circuit breaker flag
     uint64  public tau;      // Cooldown period between set() calls in seconds
     uint128 public toc;      // Last time when set() was called (Unix timestamp)
 
@@ -82,7 +81,7 @@ contract SBEBeam {
     }
 
     modifier good {
-        require(bad == 0, "SBEBeam/module-halted");
+        require(splitter.hop() < type(uint256).max, "SBEBeam/module-halted");
         _;
     }
 
@@ -120,10 +119,7 @@ contract SBEBeam {
     }
 
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "bad") {
-            require(data == 0 || data == 1, "SBEBeam/invalid-bad-value");
-            bad = uint8(data);
-        } else if (what == "tau") {
+        if (what == "tau") {
             require(data <= type(uint64).max, "SBEBeam/invalid-tau-value");
             tau = uint64(data);
         } else if (what == "toc") {
