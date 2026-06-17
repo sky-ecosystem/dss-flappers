@@ -125,6 +125,9 @@ contract KickerTest is DssTest {
 
         // Allow Test contract to read from Scribe oracle
         vm.store(address(medianizer), keccak256(abi.encode(address(this), uint256(2))), bytes32(uint256(1)));
+
+        // Add surplus
+        vm.store(address(dss.vat), keccak256(abi.encode(address(dss.vow), uint256(5))), bytes32(uint256(dss.vat.sin(address(dss.vow)) + 50_000_000e45)));
     }
 
     function _min(uint256 x, uint256 y) internal pure returns (uint256 z) {
