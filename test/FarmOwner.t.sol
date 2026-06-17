@@ -18,9 +18,9 @@ pragma solidity ^0.8.21;
 
 import "dss-test/DssTest.sol";
 
-import { StakingRewardsOwner } from "src/StakingRewardsOwner.sol";
+import { FarmOwner } from "src/FarmOwner.sol";
 
-contract StakingRewardsMock {
+contract FarmMock {
     uint256 public rewardsDuration;
     address public rewardsDistribution;
     address public recoveredToken;
@@ -57,13 +57,13 @@ contract StakingRewardsMock {
     }
 }
 
-contract StakingRewardsOwnerTest is DssTest {
-    StakingRewardsMock  farm;
-    StakingRewardsOwner owner;
+contract FarmOwnerTest is DssTest {
+    FarmMock  farm;
+    FarmOwner owner;
 
     function setUp() public {
-        farm  = new StakingRewardsMock();
-        owner = new StakingRewardsOwner(address(farm));
+        farm  = new FarmMock();
+        owner = new FarmOwner(address(farm));
     }
 
     // --- constructor / admin ---
@@ -71,25 +71,25 @@ contract StakingRewardsOwnerTest is DssTest {
     function testConstructor() public {
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
-        StakingRewardsOwner sro = new StakingRewardsOwner(address(farm));
+        FarmOwner fo = new FarmOwner(address(farm));
 
-        assertEq(address(sro.farm()),   address(farm));
-        assertEq(sro.wards(address(this)), 1);
+        assertEq(address(fo.farm()), address(farm));
+        assertEq(fo.wards(address(this)), 1);
     }
 
     function testAuth() public {
-        checkAuth(address(owner), "StakingRewardsOwner");
+        checkAuth(address(owner), "FarmOwner");
     }
 
     function testAuthModifiers() public {
         owner.deny(address(this));
-        checkModifier(address(owner), "StakingRewardsOwner/not-authorized", [
-            StakingRewardsOwner.setRewardsDuration.selector,
-            StakingRewardsOwner.setRewardsDistribution.selector,
-            StakingRewardsOwner.recoverERC20.selector,
-            StakingRewardsOwner.setPaused.selector,
-            StakingRewardsOwner.nominateNewOwner.selector,
-            StakingRewardsOwner.acceptOwnership.selector
+        checkModifier(address(owner), "FarmOwner/not-authorized", [
+            FarmOwner.setRewardsDuration.selector,
+            FarmOwner.setRewardsDistribution.selector,
+            FarmOwner.recoverERC20.selector,
+            FarmOwner.setPaused.selector,
+            FarmOwner.nominateNewOwner.selector,
+            FarmOwner.acceptOwnership.selector
         ]);
     }
 
@@ -127,6 +127,6 @@ contract StakingRewardsOwnerTest is DssTest {
     function testAcceptOwnershipForwards() public {
         owner.acceptOwnership();
         assertEq(farm.acceptOwnershipCalls(), 1);
-        assertEq(farm.owner(),                address(owner));
+        assertEq(farm.owner(), address(owner));
     }
 }

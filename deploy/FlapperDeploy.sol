@@ -27,7 +27,7 @@ import { SplitterMom } from "src/SplitterMom.sol";
 import { OracleWrapper } from "src/OracleWrapper.sol";
 import { Splitter } from "src/Splitter.sol";
 import { Kicker } from "src/Kicker.sol";
-import { StakingRewardsOwner } from "src/StakingRewardsOwner.sol";
+import { FarmOwner } from "src/FarmOwner.sol";
 import { SBEBeam } from "src/SBEBeam.sol";
 
 library FlapperDeploy {
@@ -88,25 +88,25 @@ library FlapperDeploy {
         ScriptTools.switchOwner(kicker, deployer, owner);
     }
 
-    function deployStakingRewardsOwner(
+    function deployFarmOwner(
         address deployer,
         address owner
-    ) internal returns (address stakingRewardsOwner) {
+    ) internal returns (address farmOwner) {
         DssInstance memory dss = MCD.loadFromChainlog(LOG);
 
-        stakingRewardsOwner = address(new StakingRewardsOwner(address(Splitter(dss.chainlog.getAddress("MCD_SPLIT")).farm())));
+        farmOwner = address(new FarmOwner(address(Splitter(dss.chainlog.getAddress("MCD_SPLIT")).farm())));
 
-        ScriptTools.switchOwner(stakingRewardsOwner, deployer, owner);
+        ScriptTools.switchOwner(farmOwner, deployer, owner);
     }
 
     function deploySBEBeam(
         address deployer,
         address owner,
-        address stakingRewardsOwner
+        address farmOwner
     ) internal returns (address beam) {
         DssInstance memory dss = MCD.loadFromChainlog(LOG);
 
-        beam = address(new SBEBeam(dss.chainlog.getAddress("MCD_KICK"), stakingRewardsOwner));
+        beam = address(new SBEBeam(dss.chainlog.getAddress("MCD_KICK"), farmOwner));
 
         ScriptTools.switchOwner(beam, deployer, owner);
     }

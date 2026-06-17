@@ -72,7 +72,7 @@ interface FarmLike {
     function nominateNewOwner(address) external;
 }
 
-interface StakingRewardsOwnerLike {
+interface FarmOwnerLike {
     function farm() external view returns (address);
     function wards(address) external view returns (uint256);
     function rely(address) external;
@@ -91,7 +91,7 @@ interface KickerLike {
 interface SBEBeamLike {
     function kicker() external view returns (address);
     function splitter() external view returns (address);
-    function stakingRewardsOwner() external view returns (address);
+    function farmOwner() external view returns (address);
     function kiss(address) external;
     function file(bytes32, uint256) external;
     function file(bytes32, bytes32, uint256) external;
@@ -282,34 +282,34 @@ library FlapperInit {
         dss.chainlog.setAddress(cfg.chainlogKey, kicker);
     }
 
-    // Transfers ownership of the splitter's current farm to the StakingRewardsOwner so
+    // Transfers ownership of the splitter's current farm to the FarmOwner so
     // every `onlyOwner` method is gated behind its wards going forward.
-    function initStakingRewardsOwner(
+    function initFarmOwner(
         DssInstance memory dss,
-        address            stakingRewardsOwner
+        address            farmOwner
     ) internal {
         address splitter = dss.chainlog.getAddress("MCD_SPLIT");
         address farm     = SplitterLike(splitter).farm();
 
-        require(StakingRewardsOwnerLike(stakingRewardsOwner).farm() == farm, "StakingRewardsOwner farm mismatch");
+        require(FarmOwnerLike(farmOwner).farm() == farm, "FarmOwner farm mismatch");
 
-        FarmLike(farm).nominateNewOwner(stakingRewardsOwner);
-        StakingRewardsOwnerLike(stakingRewardsOwner).acceptOwnership();
+        FarmLike(farm).nominateNewOwner(farmOwner);
+        FarmOwnerLike(farmOwner).acceptOwnership();
     }
 
     function initSBEBeam(
         DssInstance   memory dss,
         address              beam,
-        address              stakingRewardsOwner,
+        address              farmOwner,
         SBEBeamConfig memory cfg
     ) internal {
         address kicker     = dss.chainlog.getAddress("MCD_KICK");
         address splitter   = dss.chainlog.getAddress("MCD_SPLIT");
 
         // Sanity checks
-        require(SBEBeamLike(beam).kicker()              == kicker,              "SBEBeam kicker mismatch");
-        require(SBEBeamLike(beam).splitter()            == splitter,            "SBEBeam splitter mismatch");
-        require(SBEBeamLike(beam).stakingRewardsOwner() == stakingRewardsOwner, "SBEBeam stakingRewardsOwner mismatch");
+        require(SBEBeamLike(beam).kicker()    == kicker,    "SBEBeam kicker mismatch");
+        require(SBEBeamLike(beam).splitter()  == splitter,  "SBEBeam splitter mismatch");
+        require(SBEBeamLike(beam).farmOwner() == farmOwner, "SBEBeam farmOwner mismatch");
 
         SBEBeamLike(beam).file("tau", cfg.tau);
 
@@ -327,7 +327,7 @@ library FlapperInit {
 
         KickerLike(kicker).rely(beam);
         SplitterLike(splitter).rely(beam);
-        StakingRewardsOwnerLike(stakingRewardsOwner).rely(beam);
+        FarmOwnerLike(farmOwner).rely(beam);
 
         for (uint256 i; i < cfg.buds.length; i ++) {
             SBEBeamLike(beam).kiss(cfg.buds[i]);

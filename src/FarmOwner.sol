@@ -25,12 +25,12 @@ interface FarmLike {
     function acceptOwnership() external;
 }
 
-// StakingRewardsOwner holds ownership of an external Synthetix-style StakingRewards farm
+// FarmOwner holds ownership of an external Synthetix-style StakingRewards farm
 // on behalf of governance. Every `onlyOwner` method on the farm is exposed as a
 // ward-gated forwarder so wards (typically MCD_PAUSE_PROXY and the SBEBeam)
 // retain full farm administration while the farm's single-owner slot is held
 // by this contract.
-contract StakingRewardsOwner {
+contract FarmOwner {
     // --- storage variables ---
 
     mapping(address => uint256) public wards;
@@ -47,7 +47,7 @@ contract StakingRewardsOwner {
     // --- modifiers ---
 
     modifier auth {
-        require(wards[msg.sender] == 1, "StakingRewardsOwner/not-authorized");
+        require(wards[msg.sender] == 1, "FarmOwner/not-authorized");
         _;
     }
 
@@ -72,7 +72,7 @@ contract StakingRewardsOwner {
         emit Deny(usr);
     }
 
-    // --- forwarded onlyOwner methods ---
+    // --- forwarded onlyOwner methods + acceptOwnership ---
 
     function setRewardsDuration(uint256 duration) external auth {
         farm.setRewardsDuration(duration);

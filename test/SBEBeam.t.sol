@@ -21,7 +21,7 @@ import "dss-test/DssTest.sol";
 import { Splitter }      from "src/Splitter.sol";
 import { Kicker }        from "src/Kicker.sol";
 import { SBEBeam }       from "src/SBEBeam.sol";
-import { StakingRewardsOwner } from "src/StakingRewardsOwner.sol";
+import { FarmOwner } from "src/FarmOwner.sol";
 import { FlapperDeploy } from "deploy/FlapperDeploy.sol";
 import {
     FlapperInit,
@@ -40,7 +40,7 @@ contract SBEBeamTest is DssTest {
     Splitter            splitter;
     Kicker              kicker;
     StakingRewardsLike  farm;
-    StakingRewardsOwner stakingRewardsOwner;
+    FarmOwner           farmOwner;
     SBEBeam             beam;
 
     address pauseProxy;
@@ -65,7 +65,7 @@ contract SBEBeamTest is DssTest {
 
         // Seed values in-range for the ranges configured below and align the
         // farm's rewardsDuration with splitter.hop. Do this while pauseProxy
-        // still owns the farm (before initStakingRewardsOwner transfers it).
+        // still owns the farm (before initFarmOwner transfers it).
         vm.startPrank(pauseProxy);
         kicker.file("kbump", uint256(5_000e45));
         splitter.file("burn", 0.5e18);
@@ -73,30 +73,30 @@ contract SBEBeamTest is DssTest {
         farm.setRewardsDuration(1 hours);
         vm.stopPrank();
 
-        // Deploy the StakingRewardsOwner and transfer farm ownership to it.
-        stakingRewardsOwner = StakingRewardsOwner(FlapperDeploy.deployStakingRewardsOwner({
+        // Deploy the FarmOwner and transfer farm ownership to it.
+        farmOwner = FarmOwner(FlapperDeploy.deployFarmOwner({
             deployer: address(this),
             owner:    pauseProxy
         }));
 
         vm.startPrank(pauseProxy);
-        FlapperInit.initStakingRewardsOwner(dss, address(stakingRewardsOwner));
+        FlapperInit.initFarmOwner(dss, address(farmOwner));
         vm.stopPrank();
 
-        assertEq(farm.owner(), address(stakingRewardsOwner));
+        assertEq(farm.owner(), address(farmOwner));
 
-        // Deploy the SBEBeam pointing at the StakingRewardsOwner.
+        // Deploy the SBEBeam pointing at the FarmOwner.
         beam = SBEBeam(FlapperDeploy.deploySBEBeam({
-            deployer:            address(this),
-            owner:               pauseProxy,
-            stakingRewardsOwner: address(stakingRewardsOwner)
+            deployer:  address(this),
+            owner:     pauseProxy,
+            farmOwner: address(farmOwner)
         }));
 
         address[] memory buds = new address[](1);
         buds[0] = bud;
 
         vm.startPrank(pauseProxy);
-        FlapperInit.initSBEBeam(dss, address(beam), address(stakingRewardsOwner), SBEBeamConfig({
+        FlapperInit.initSBEBeam(dss, address(beam), address(farmOwner), SBEBeamConfig({
             tau:         0,
             kbump:       SBEBeamRangeConfig({min: 1_000e45,  max: 10_000e45, step: 1_000e45}),
             burn:        SBEBeamRangeConfig({min: 0,         max: WAD,       step: WAD}),
@@ -112,11 +112,11 @@ contract SBEBeamTest is DssTest {
     function testConstructor() public {
         vm.expectEmit(true, true, true, true);
         emit Rely(address(this));
-        SBEBeam b = new SBEBeam(address(kicker), address(stakingRewardsOwner));
+        SBEBeam b = new SBEBeam(address(kicker), address(farmOwner));
 
-        assertEq(address(b.kicker()),              address(kicker));
-        assertEq(address(b.splitter()),            address(splitter));
-        assertEq(address(b.stakingRewardsOwner()), address(stakingRewardsOwner));
+        assertEq(address(b.kicker()),    address(kicker));
+        assertEq(address(b.splitter()),  address(splitter));
+        assertEq(address(b.farmOwner()), address(farmOwner));
         assertEq(b.wards(address(this)), 1);
     }
 

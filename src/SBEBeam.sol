@@ -29,7 +29,7 @@ interface SplitterLike {
     function file(bytes32, uint256) external;
 }
 
-interface StakingRewardsOwnerLike {
+interface FarmOwnerLike {
     function setRewardsDuration(uint256) external;
 }
 
@@ -55,9 +55,9 @@ contract SBEBeam {
 
     // --- immutables ---
 
-    KickerLike              public immutable kicker;
-    SplitterLike            public immutable splitter;
-    StakingRewardsOwnerLike public immutable stakingRewardsOwner;
+    KickerLike    public immutable kicker;
+    SplitterLike  public immutable splitter;
+    FarmOwnerLike public immutable farmOwner;
 
     // --- events ---
 
@@ -88,10 +88,10 @@ contract SBEBeam {
 
     // --- constructor ---
 
-    constructor(address _kicker, address _stakingRewardsOwner) {
-        kicker              = KickerLike(_kicker);
-        splitter            = SplitterLike(kicker.splitter());
-        stakingRewardsOwner = StakingRewardsOwnerLike(_stakingRewardsOwner);
+    constructor(address _kicker, address _farmOwner) {
+        kicker    = KickerLike(_kicker);
+        splitter  = SplitterLike(kicker.splitter());
+        farmOwner = FarmOwnerLike(_farmOwner);
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
@@ -184,7 +184,7 @@ contract SBEBeam {
         kicker.file("kbump", kbump);
         splitter.file("burn", burn);
         splitter.file("hop", hop);
-        stakingRewardsOwner.setRewardsDuration(hop);
+        farmOwner.setRewardsDuration(hop);
 
         emit Set(kbump, burn, hop);
     }
