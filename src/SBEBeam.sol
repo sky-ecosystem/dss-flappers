@@ -157,18 +157,18 @@ contract SBEBeam {
 
     // --- internals ---
 
-    function _check(string memory field, uint256 val, uint256 old, Cfg memory cfg) internal pure {
+    function _check(string memory field, uint256 val, uint256 prev, Cfg memory cfg) internal pure returns (uint256 prevBounded) {
         require(val >= cfg.min, string(abi.encodePacked("SBEBeam/", field, "-below-min")));
         require(val <= cfg.max, string(abi.encodePacked("SBEBeam/", field, "-above-max")));
 
-        if (old < cfg.min) {
-            old = cfg.min;
-        } else if (old > cfg.max) {
-            old = cfg.max;
-        }
+        prevBounded = prev < cfg.min
+                      ? cfg.min
+                      : prev > cfg.max
+                        ? cfg.max
+                        : prev;
 
-        uint256 delta = val > old ? val - old : old - val;
-        require(delta <= old * cfg.step / BPS, string(abi.encodePacked("SBEBeam/", field, "-delta-above-step")));
+        uint256 delta = val > prevBounded ? val - prevBounded : prevBounded - val;
+        require(delta <= prevBounded * cfg.step / BPS, string(abi.encodePacked("SBEBeam/", field, "-delta-above-step")));
     }
 
     // --- execution ---
@@ -182,11 +182,11 @@ contract SBEBeam {
         uint256 prevKbump = kicker.kbump();
         uint256 prevHop = splitter.hop();
 
-        _check("kbump", kbump, prevKbump,       kbumpCfg);
-        _check("burn",  burn,  splitter.burn(), burnCfg);
-        _check("hop",   hop,   prevHop,         hopCfg);
+        uint256 prevKbumpBounded = _check("kbump", kbump, prevKbump, kbumpCfg);
+        uint256 prevHopBounded = _check("hop", hop, prevHop, hopCfg);
+        _check("burn", burn, splitter.burn(), burnCfg);
 
-        uint256 prevRatio = prevKbump / prevHop;
+        uint256 prevRatio = prevKbumpBounded / prevHopBounded;
         uint256 newRatio  = kbump / hop;
 
         uint256 delta = prevRatio > newRatio ? prevRatio - newRatio : newRatio - prevRatio;

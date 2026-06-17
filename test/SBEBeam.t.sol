@@ -463,6 +463,37 @@ contract SBEBeamTest is DssTest {
         assertEq(splitter.hop(), 59 minutes);
     }
 
+    // The ratio check uses the bounded (clamped-into-range) previous values, not the raw
+    // on-chain ones. So a value that drifted out of range can be pulled back in a single
+    // set() without the ratio guard tripping on the large raw-vs-new gap.
+    function testSetRatioUsesBoundedPrevKbump() public {
+        vm.startPrank(pauseProxy);
+        kicker.file("kbump", uint256(50_000e45)); // above max (10_000e45)
+        beam.file("ratioStep", 10_00);            // 10%
+        vm.stopPrank();
+
+        // bounded prevRatio = clamp(50_000e45) / 1 hours = 10_000e45 / 1 hours
+        // newRatio          = 9_900e45 / 1 hours -> delta ~1% of bounded prevRatio <= 10%
+        // (With the raw 50_000e45 prev the delta would be ~80% and this would revert.)
+        vm.prank(bud);
+        beam.set(9_900e45, 0.5e18, 1 hours);
+        assertEq(kicker.kbump(), 9_900e45);
+    }
+
+    function testSetRatioUsesBoundedPrevHop() public {
+        vm.startPrank(pauseProxy);
+        splitter.file("hop", 2 days);  // above max (1 days)
+        beam.file("ratioStep", 10_00); // 10%
+        vm.stopPrank();
+
+        // bounded prevRatio = 5_000e45 / clamp(2 days) = 5_000e45 / 1 days
+        // newRatio          = 5_000e45 / (1 days - 5 minutes) -> delta ~0.35% <= 10%
+        // (With the raw 2 days prev the delta would be ~100% and this would revert.)
+        vm.prank(bud);
+        beam.set(5_000e45, 0.5e18, 1 days - 5 minutes);
+        assertEq(splitter.hop(), 1 days - 5 minutes);
+    }
+
     // Simulate state where the current on-chain value is below the newly tightened min.
     // _check should clamp `old` up to min before the delta check, so the operator
     // can still move toward min without tripping step.
