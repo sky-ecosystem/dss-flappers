@@ -52,6 +52,43 @@ Configurable Parameters:
 
 This contract allows bypassing the governance delay when disabling the Splitter in an emergency.
 
+### FarmOwner
+
+Holds ownership of an external Synthetix-style `StakingRewards` farm (the `Splitter.farm`) on behalf of governance. The farm exposes a single-owner administration model, so `FarmOwner` takes that owner slot and re-exposes every `onlyOwner` method as a ward-gated forwarder. This lets multiple wards (typically the `MCD_PAUSE_PROXY` and the `SBEBeam`) share farm administration while the farm itself only ever knows one owner.
+
+Forwarded methods:
+* `setRewardsDuration` - Set the duration of the rewards distribution window.
+* `setRewardsDistribution` - Set the address allowed to notify new rewards.
+* `recoverERC20` - Recover tokens accidentally sent to the farm.
+* `setPaused` - Pause or unpause the farm.
+* `nominateNewOwner` / `acceptOwnership` - Two-step ownership transfer, e.g. to hand the farm back to governance directly.
+
+### SBEBeam
+
+A bounded, rate-limited parameter setter for the Smart Burn Engine. It allows a permissioned `facilitator` (a `bud`) to periodically adjust the three core burn-engine knobs within governance-defined ranges, without going through the full governance delay each time. In a single `set` call it atomically updates:
+* `Kicker.kbump` - Fixed lot size.
+* `Splitter.burn` - Percentage of surplus routed to the burn engine.
+* `Splitter.hop` - Kick cadence (also applied to the farm's `rewardsDuration` via `FarmOwner`).
+
+For each knob, governance configures a `Cfg` range through `file(id, what, data)`:
+* `min` - Minimum allowed value.
+* `max` - Maximum allowed value.
+* `step` - Maximum allowed change per `set` call (a value of `0` means the knob is not configured and `set` will revert).
+
+The delta on each `set` is measured against the parameter's current on-chain value (clamped into `[min, max]` first), so a single call can never move a value outside its range or by more than `step`.
+
+Configurable Parameters:
+* `tau` - Cooldown period (in seconds) enforced between consecutive `set` calls.
+* `toc` - Timestamp of the last `set` call.
+
+Access control:
+* `wards` (`rely`/`deny`) - Governance-level administrators that configure the ranges.
+* `buds` (`kiss`/`diss`) - Facilitators permitted to call `set`.
+
+Halting: `set` is automatically blocked whenever the burn engine itself is stopped, i.e. when `Splitter.hop` is set to `type(uint256).max` (the canonical way governance disables kicks, since `Splitter.kick` then becomes unreachable). This binds the `SBEBeam` halt state to the engine's real halt state — there is no separate flag to keep in sync — and it ensures a facilitator can never use `set` to revive a governance-halted engine. Only governance can bring it back, by re-filing a finite `hop` on the `Splitter`.
+
+Note: `SBEBeam` must be a ward of `Kicker`, `Splitter`, and `FarmOwner` for its `set` call to succeed.
+
 ### OracleWrapper
 
 Allows for scaling down an oracle price by a certain value. This can be useful when the `gem` is a redenominated version of an existing token, which already has a reliable oracle.
