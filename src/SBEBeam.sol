@@ -17,15 +17,12 @@
 pragma solidity ^0.8.21;
 
 interface KickerLike {
-    function kbump() external view returns (uint256);
     function splitter() external view returns (address);
     function file(bytes32, uint256) external;
 }
 
 interface SplitterLike {
-    function burn() external view returns (uint256);
     function hop()  external view returns (uint256);
-    function farm() external view returns (address);
     function file(bytes32, uint256) external;
 }
 
