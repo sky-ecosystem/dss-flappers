@@ -38,20 +38,11 @@ contract SBEBeam {
 
     mapping(address => uint256) public wards;
     mapping(address => uint256) public buds;
-    Cfg     public kbumpCfg;  // [rad]     Range for Kicker.kbump
-    Cfg     public burnCfg;   // [wad]     Range for Splitter.burn
-    Cfg     public hopCfg;    // [seconds] Range for Splitter.hop (also applied to farm.rewardsDuration)
-    uint256 public ratioStep; // [bps]     Maximum allowed ratio (kbump / hop) change per update, relative to its current value
-    uint64  public tau;       // Cooldown period between set() calls in seconds
-    uint128 public toc;       // Last time when set() was called (Unix timestamp)
-
-    // --- structs ---
-
-    struct Cfg {
-        uint256 min;  // Minimum allowed value
-        uint256 max;  // Maximum allowed value
-        uint256 step; // [bps] Maximum allowed change per update, relative to the current value
-    }
+    uint256 public maxKbump; // [rad]     Maximum allowed value for Kicker.kbump
+    uint256 public minHop;   // [seconds] Minimum allowed value for Splitter.hop (also applied to farm.rewardsDuration)
+    uint256 public maxRate;  // [rad/s]   Maximum allowed burn rate (kbump / hop)
+    uint64  public tau;      // Cooldown period between set() calls in seconds
+    uint128 public toc;      // Last time when set() was called (Unix timestamp)
 
     // --- immutables ---
 
@@ -61,7 +52,8 @@ contract SBEBeam {
 
     // --- constants ---
 
-    uint256 internal constant BPS = 100_00;
+    uint256 internal constant WAD = 10 ** 18;
+    uint256 internal constant RAY = 10 ** 27;
 
     // --- events ---
 
@@ -70,7 +62,6 @@ contract SBEBeam {
     event Kiss(address indexed usr);
     event Diss(address indexed usr);
     event File(bytes32 indexed what, uint256 data);
-    event File(bytes32 indexed id, bytes32 indexed what, uint256 data);
     event Set(uint256 kbump, uint256 burn, uint256 hop);
 
     // --- modifiers ---
@@ -124,8 +115,12 @@ contract SBEBeam {
     }
 
     function file(bytes32 what, uint256 data) external auth {
-        if (what == "ratioStep") {
-            ratioStep = data;
+        if (what == "maxKbump") {
+            maxKbump = data;
+        } else if (what == "minHop") {
+            minHop = data;
+        } else if (what == "maxRate") {
+            maxRate = data;
         } else if (what == "tau") {
             require(data <= type(uint64).max, "SBEBeam/invalid-tau-value");
             tau = uint64(data);
@@ -136,65 +131,31 @@ contract SBEBeam {
         emit File(what, data);
     }
 
-    function file(bytes32 id, bytes32 what, uint256 data) external auth {
-        Cfg storage cfg;
-        if      (id == "kbump") cfg = kbumpCfg;
-        else if (id == "burn")  cfg = burnCfg;
-        else if (id == "hop")   cfg = hopCfg;
-        else revert("SBEBeam/file-unrecognized-id");
-
-        if (what == "min") {
-            require(data <= cfg.max, "SBEBeam/min-too-high");
-            cfg.min = data;
-        } else if (what == "max") {
-            require(data >= cfg.min, "SBEBeam/max-too-low");
-            cfg.max = data;
-        } else if (what == "step") {
-            cfg.step = data;
-        } else revert("SBEBeam/file-unrecognized-param");
-        emit File(id, what, data);
-    }
-
-    // --- internals ---
-
-    function _check(string memory field, uint256 val, uint256 prev, Cfg memory cfg) internal pure returns (uint256 prevBounded) {
-        require(val >= cfg.min, string(abi.encodePacked("SBEBeam/", field, "-below-min")));
-        require(val <= cfg.max, string(abi.encodePacked("SBEBeam/", field, "-above-max")));
-
-        prevBounded = prev < cfg.min
-                      ? cfg.min
-                      : prev > cfg.max
-                        ? cfg.max
-                        : prev;
-
-        uint256 delta = val > prevBounded ? val - prevBounded : prevBounded - val;
-        require(delta <= prevBounded * cfg.step / BPS, string(abi.encodePacked("SBEBeam/", field, "-delta-above-step")));
-    }
-
     // --- execution ---
 
     // Notes:
     // - It is intended to rewrite the same values, emit the event, and reset the toc count, even if there is no change.
+    // - Only the throughput-increasing directions are bounded: kbump is capped at maxKbump, hop is
+    //   floored at minHop, and the burn rate (kbump / hop) is capped at maxRate. Lowering kbump or
+    //   raising hop is always allowed; at worst it stalls the burn stream, which governance can revive.
+    // - burn is capped at WAD (100%); a higher value would make Splitter.kick underflow and halt.
+    // - kbump must be a whole multiple of RAY, preserving the Kicker deploy invariant and avoiding kick dust.
+    // - hop must stay below type(uint256).max: that value is the halt sentinel (see the good modifier),
+    //   reserved for governance, so a facilitator cannot use set() to halt and lock itself out of the module.
     function set(uint256 kbump, uint256 burn, uint256 hop) external toll good {
         require(block.timestamp >= tau + toc, "SBEBeam/too-early");
         toc = uint128(block.timestamp);
 
-        uint256 prevKbump = kicker.kbump();
-        uint256 prevHop = splitter.hop();
-
-        uint256 prevKbumpBounded = _check("kbump", kbump, prevKbump, kbumpCfg);
-        uint256 prevHopBounded = _check("hop", hop, prevHop, hopCfg);
-        _check("burn", burn, splitter.burn(), burnCfg);
-
-        uint256 prevRatio = prevKbumpBounded / prevHopBounded;
-        uint256 newRatio  = kbump / hop;
-
-        uint256 delta = prevRatio > newRatio ? prevRatio - newRatio : newRatio - prevRatio;
-        require(delta <= prevRatio * ratioStep / BPS, "SBEBeam/ratio-delta-above-step");
+        require(kbump <= maxKbump,       "SBEBeam/kbump-above-max");
+        require(kbump % RAY == 0,        "SBEBeam/kbump-not-multiple-of-RAY");
+        require(burn <= WAD,             "SBEBeam/burn-above-max");
+        require(hop >= minHop,           "SBEBeam/hop-below-min");
+        require(hop < type(uint256).max, "SBEBeam/hop-halts-engine");
+        require(kbump / hop <= maxRate,  "SBEBeam/rate-above-max");
 
         kicker.file("kbump", kbump);
         splitter.file("burn", burn);
-        if (hop != prevHop) {
+        if (hop != splitter.hop()) {
             // Avoid to extend duration of current stream if hop did not change
             splitter.file("hop", hop);
             farmOwner.setRewardsDuration(hop);

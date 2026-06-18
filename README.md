@@ -65,22 +65,21 @@ Forwarded methods:
 
 ### SBEBeam
 
-A bounded, rate-limited parameter setter for the Smart Burn Engine. It allows a permissioned `facilitator` (a `bud`) to periodically adjust the three core burn-engine knobs within governance-defined ranges, without going through the full governance delay each time. In a single `set` call it atomically updates:
+A bounded, rate-limited parameter setter for the Smart Burn Engine. It allows a permissioned `facilitator` (a `bud`) to periodically adjust the three core burn-engine knobs within governance-defined safety bounds, without going through the full governance delay each time. In a single `set` call it atomically updates:
 * `Kicker.kbump` - Fixed lot size.
 * `Splitter.burn` - Percentage of surplus routed to the burn engine.
 * `Splitter.hop` - Kick cadence (also applied to the farm's `rewardsDuration` via `FarmOwner`).
 
-For each knob, governance configures a `Cfg` range through `file(id, what, data)`:
-* `min` - Minimum allowed value.
-* `max` - Maximum allowed value.
-* `step` - Maximum allowed change per `set` call, expressed in basis points (`bps`, where `10000` = 100%) relative to the parameter's current value. A value of `0` freezes the knob (only a no-op rewrite is allowed).
-
-The delta on each `set` is measured against the parameter's current on-chain value (clamped into `[min, max]` first); the move is rejected if it exceeds `current * step / 10000` or would leave `[min, max]`. Because `step` is relative, the same configured value throttles consistently regardless of the parameter's absolute magnitude.
+The bounds only constrain the throughput-increasing directions, so a facilitator can never accelerate the burn beyond what governance has sanctioned. The opposite moves — lowering `kbump` or raising `hop` — are always permitted: at worst they stall the burn stream (a denial of service), which governance can revive on its own. This asymmetry is what makes the module safe to drive with an operator. `burn` is additionally capped at `WAD` (100%), since the `Splitter` does not validate it and a value above `WAD` would make `Splitter.kick` underflow and halt.
 
 Configurable Parameters:
-* `ratioStep` - Maximum allowed change of the `kbump / hop` ratio (the total surplus throughput) per `set` call, in `bps` relative to its current value. This bounds how fast the combined throughput can move even when each individual knob stays within its own `step`.
+* `maxKbump` - Maximum allowed value for `Kicker.kbump`. There is no minimum; `kbump` may be lowered freely, but it must be a whole multiple of `RAY` (matching the `Kicker` deploy invariant and avoiding `kick` rounding dust).
+* `minHop` - Minimum allowed value for `Splitter.hop`. There is no maximum; `hop` may be raised freely, except it cannot be set to `type(uint256).max` — that value is the halt sentinel reserved for governance (see Halting below), so a facilitator cannot use `set` to halt the engine and lock itself out.
+* `maxRate` - Maximum allowed burn rate, measured as `kbump / hop` (the total surplus throughput). This caps the combined throughput even when `kbump` and `hop` are each individually within their own bound.
 * `tau` - Cooldown period (in seconds) enforced between consecutive `set` calls.
 * `toc` - Timestamp of the last `set` call.
+
+`Splitter.burn` is bounded only at its upper end (`burn <= WAD`); it may be lowered freely down to zero.
 
 Access control:
 * `wards` (`rely`/`deny`) - Governance-level administrators that configure the ranges.

@@ -25,8 +25,7 @@ import { FarmOwner } from "src/FarmOwner.sol";
 import { FlapperDeploy } from "deploy/FlapperDeploy.sol";
 import {
     FlapperInit,
-    SBEBeamConfig,
-    SBEBeamRangeConfig
+    SBEBeamConfig
 } from "deploy/FlapperInit.sol";
 
 interface FarmLike {
@@ -51,7 +50,6 @@ contract SBEBeamTest is DssTest {
 
     event Kiss(address indexed usr);
     event Diss(address indexed usr);
-    event File(bytes32 indexed id, bytes32 indexed what, uint256 data);
     event Set(uint256 kbump, uint256 burn, uint256 hop);
 
     function setUp() public {
@@ -97,11 +95,10 @@ contract SBEBeamTest is DssTest {
 
         vm.startPrank(pauseProxy);
         FlapperInit.initSBEBeam(dss, address(beam), address(farmOwner), SBEBeamConfig({
-            ratioStep:   1000_00, // [bps] 1000%, permissive so per-parameter checks drive these tests
+            maxKbump:    10_000e45,
+            minHop:      1 minutes,
+            maxRate:     type(uint256).max, // permissive; rate-specific tests file their own cap
             tau:         0,
-            kbump:       SBEBeamRangeConfig({min: 1_000e45,  max: 10_000e45, step:  30_00}), // 30%
-            burn:        SBEBeamRangeConfig({min: 0,         max: WAD,       step:  80_00}), // 80%
-            hop:         SBEBeamRangeConfig({min: 1 minutes, max: 1 days,    step: 200_00}), // 200%
             buds:        buds,
             chainlogKey: "MCD_SBE_BEAM"
         }));
@@ -126,11 +123,7 @@ contract SBEBeamTest is DssTest {
     }
 
     function testAuthMethods() public {
-        checkModifier(address(beam), "SBEBeam/not-authorized", [
-            SBEBeam.kiss.selector,
-            SBEBeam.diss.selector,
-            bytes4(keccak256("file(bytes32,bytes32,uint256)"))
-        ]);
+        checkModifier(address(beam), "SBEBeam/not-authorized", [SBEBeam.kiss.selector, SBEBeam.diss.selector]);
     }
 
     function testTollMethods() public {
@@ -157,7 +150,7 @@ contract SBEBeamTest is DssTest {
     }
 
     function testFileUint() public {
-        checkFileUint(address(beam), "SBEBeam", ["ratioStep", "tau", "toc"]);
+        checkFileUint(address(beam), "SBEBeam", ["maxKbump", "minHop", "maxRate", "tau", "toc"]);
     }
 
     function testFileTauOverflow() public {
@@ -176,71 +169,6 @@ contract SBEBeamTest is DssTest {
         vm.prank(pauseProxy);
         vm.expectRevert("SBEBeam/file-unrecognized-param");
         beam.file("unknown", 1);
-    }
-
-    // --- file(id, what, data) ---
-
-    function _cfg(bytes32 id) internal view returns (uint256 min_, uint256 max_, uint256 step_) {
-        if      (id == "kbump") (min_, max_, step_) = beam.kbumpCfg();
-        else if (id == "burn")  (min_, max_, step_) = beam.burnCfg();
-        else if (id == "hop")   (min_, max_, step_) = beam.hopCfg();
-    }
-
-    function testFileCfg() public {
-        vm.startPrank(pauseProxy);
-        bytes32[3] memory ids = [bytes32("kbump"), bytes32("burn"), bytes32("hop")];
-        for (uint256 i; i < ids.length; i++) {
-            bytes32 id = ids[i];
-
-            vm.expectEmit();
-            emit File(id, "min", uint256(42));
-            beam.file(id, "min", 42);
-
-            vm.expectEmit();
-            emit File(id, "max", uint256(105));
-            beam.file(id, "max", 105);
-
-            vm.expectEmit();
-            emit File(id, "step", uint256(7));
-            beam.file(id, "step", 7);
-
-            (uint256 min_, uint256 max_, uint256 step_) = _cfg(id);
-            assertEq(min_,  42);
-            assertEq(max_,  105);
-            assertEq(step_, 7);
-        }
-        vm.stopPrank();
-    }
-
-    function testFileCfgMinTooHigh() public {
-        vm.startPrank(pauseProxy);
-        beam.file("kbump", "min", 0);
-        beam.file("kbump", "max", 100);
-        vm.expectRevert("SBEBeam/min-too-high");
-        beam.file("kbump", "min", 101);
-        vm.stopPrank();
-    }
-
-    function testFileCfgMaxTooLow() public {
-        vm.startPrank(pauseProxy);
-        beam.file("kbump", "min", 0);
-        beam.file("kbump", "max", 100);
-        beam.file("kbump", "min", 50);
-        vm.expectRevert("SBEBeam/max-too-low");
-        beam.file("kbump", "max", 49);
-        vm.stopPrank();
-    }
-
-    function testFileCfgUnrecognizedId() public {
-        vm.expectRevert("SBEBeam/file-unrecognized-id");
-        vm.prank(pauseProxy);
-        beam.file("unknown", "min", 1);
-    }
-
-    function testFileCfgUnrecognizedParam() public {
-        vm.expectRevert("SBEBeam/file-unrecognized-param");
-        vm.prank(pauseProxy);
-        beam.file("kbump", "unknown", 1);
     }
 
     // --- set() happy path ---
@@ -332,243 +260,95 @@ contract SBEBeamTest is DssTest {
         beam.set(5_000e45, 0.5e18, 1 hours);
     }
 
-    // --- set() range checks ---
+    // --- set() safety bounds ---
 
-    function testSetBelowMinKbump() public {
-        vm.expectRevert("SBEBeam/kbump-below-min");
+    function testSetAbovemaxKbump() public {
+        vm.expectRevert("SBEBeam/kbump-above-max");
         vm.prank(bud);
-        beam.set(500e45, 0.5e18, 1 hours); // kbump below min (1_000e45)
+        beam.set(10_000e45 + 1, 0.5e18, 1 hours); // kbump above max (10_000e45)
     }
 
-    function testSetBelowMinBurn() public {
-        vm.prank(pauseProxy);
-        beam.file("burn", "min", 0.3e18);
-        vm.expectRevert("SBEBeam/burn-below-min");
+    function testSetAtmaxKbump() public {
         vm.prank(bud);
-        beam.set(5_000e45, 0.1e18, 1 hours); // burn below min (0.3e18)
+        beam.set(10_000e45, 0.5e18, 1 hours); // kbump exactly at max
+        assertEq(kicker.kbump(), 10_000e45);
+    }
+
+    function testSetKbumpNotMultipleOfRay() public {
+        vm.expectRevert("SBEBeam/kbump-not-multiple-of-RAY");
+        vm.prank(bud);
+        beam.set(5_000e45 + 1, 0.5e18, 1 hours); // kbump not a whole multiple of RAY
     }
 
     function testSetBelowMinHop() public {
         vm.expectRevert("SBEBeam/hop-below-min");
         vm.prank(bud);
-        beam.set(5_000e45, 0.5e18, 30 seconds); // hop below min (1 minutes)
+        beam.set(5_000e45, 0.5e18, 59 seconds); // hop below min (1 minutes)
     }
 
-    function testSetAboveMaxKbump() public {
-        vm.expectRevert("SBEBeam/kbump-above-max");
+    function testSetAtMinHop() public {
         vm.prank(bud);
-        beam.set(20_000e45, 0.5e18, 1 hours); // kbump above max (10_000e45)
+        beam.set(5_000e45, 0.5e18, 1 minutes); // hop exactly at min
+        assertEq(splitter.hop(),         1 minutes);
+        assertEq(farm.rewardsDuration(), 1 minutes);
+    }
+
+    // hop may be raised freely, but it cannot be set to the halt sentinel (type(uint256).max),
+    // which is reserved for governance; otherwise a bud could halt and lock itself out (good modifier).
+    function testSetHopHaltSentinel() public {
+        vm.expectRevert("SBEBeam/hop-halts-engine");
+        vm.prank(bud);
+        beam.set(5_000e45, 0.5e18, type(uint256).max);
+    }
+
+    // The throttling-only directions are never blocked: kbump can be lowered arbitrarily
+    // and hop raised arbitrarily, since at worst that stalls the burn stream.
+    function testSetKbumpCanGoArbitrarilyLowAndHopCanGoArbitrarilyHigh() public {
+        vm.prank(bud);
+        beam.set(1e27, 0.5e18, 365 days); // far below the previous kbump (still a RAY multiple), far above the previous hop
+        assertEq(kicker.kbump(),         1e27);
+        assertEq(splitter.hop(),         365 days);
+        assertEq(farm.rewardsDuration(), 365 days);
     }
 
     function testSetAboveMaxBurn() public {
         vm.expectRevert("SBEBeam/burn-above-max");
         vm.prank(bud);
-        beam.set(5_000e45, 2e18, 1 hours); // burn above max (WAD)
+        beam.set(5_000e45, WAD + 1, 1 hours); // burn above WAD (100%) would halt Splitter.kick
     }
 
-    function testSetAboveMaxHop() public {
-        vm.expectRevert("SBEBeam/hop-above-max");
+    function testSetAtMaxBurn() public {
         vm.prank(bud);
-        beam.set(5_000e45, 0.5e18, 2 days); // hop above max (1 days)
+        beam.set(5_000e45, WAD, 1 hours); // burn exactly at WAD (100%)
+        assertEq(splitter.burn(), WAD);
     }
 
-    function testSetDeltaAtStepKbump() public {
+    // Lowering burn is always allowed (zero is the safe direction; at worst it stalls the burn stream).
+    function testSetBurnCanGoToZero() public {
+        vm.prank(bud);
+        beam.set(5_000e45, 0, 1 hours);
+        assertEq(splitter.burn(), 0);
+    }
+
+    // --- set() rate (kbump / hop) check ---
+
+    function testSetRateAboveMax() public {
+        // kbump and hop are each within their own bound, but their ratio exceeds maxRate.
         vm.prank(pauseProxy);
-        beam.file("kbump", "step", 1_00); // 1% of 5_000e45 = 50e45
+        beam.file("maxRate", 1e45); // 3_600e45 / 1 hours
+
+        vm.expectRevert("SBEBeam/rate-above-max");
         vm.prank(bud);
-        beam.set(5_050e45, 0.5e18, 1 hours); // delta exactly 50e45 == step
-        assertEq(kicker.kbump(), 5_050e45);
+        beam.set(3_600e45, 0.5e18, 1 hours - 1 seconds); // 3_600e45 / 3599 > 1e45 == maxRate
     }
 
-    function testSetDeltaAboveStepKbump() public {
+    function testSetRateAtMax() public {
         vm.prank(pauseProxy);
-        beam.file("kbump", "step", 1_00); // 1% of 5_000e45 = 50e45
-        vm.expectRevert("SBEBeam/kbump-delta-above-step");
+        beam.file("maxRate", 1e45); // 3_600e45 / 1 hours
+
         vm.prank(bud);
-        beam.set(5_050e45 + 1, 0.5e18, 1 hours); // delta 50e45 + 1 > step
-    }
-
-    function testSetDeltaAtStepBurn() public {
-        vm.prank(pauseProxy);
-        beam.file("burn", "step", 10_00); // 10% of 0.5e18 = 0.05e18
-        vm.prank(bud);
-        beam.set(5_000e45, 0.55e18, 1 hours); // delta exactly 0.05e18 == step
-        assertEq(splitter.burn(), 0.55e18);
-    }
-
-    function testSetDeltaAboveStepBurn() public {
-        vm.prank(pauseProxy);
-        beam.file("burn", "step", 10_00); // 10% of 0.5e18 = 0.05e18
-        vm.expectRevert("SBEBeam/burn-delta-above-step");
-        vm.prank(bud);
-        beam.set(5_000e45, 0.55e18 + 1, 1 hours); // delta 0.05e18 + 1 > step
-    }
-
-    function testSetDeltaAtStepHop() public {
-        vm.prank(pauseProxy);
-        beam.file("hop", "step", 30_00); // 30% of 1 hours = 18 minutes
-        vm.prank(bud);
-        beam.set(5_000e45, 0.5e18, 1 hours + 18 minutes); // delta exactly 18 minutes == step
-        assertEq(splitter.hop(),         1 hours + 18 minutes);
-        assertEq(farm.rewardsDuration(), 1 hours + 18 minutes);
-    }
-
-    function testSetDeltaAboveStepHop() public {
-        vm.prank(pauseProxy);
-        beam.file("hop", "step", 30_00); // 30% of 1 hours = 18 minutes
-        vm.expectRevert("SBEBeam/hop-delta-above-step");
-        vm.prank(bud);
-        beam.set(5_000e45, 0.5e18, 1 hours + 18 minutes + 1); // delta 18 minutes + 1 > step
-    }
-
-    // --- set() ratio (kbump / hop) check ---
-
-    function testSetRatioDeltaOutsideStep() public {
-        // Each parameter stays within its own step, but the combined kbump/hop ratio moves too far.
-        vm.prank(pauseProxy);
-        beam.file("ratioStep", 17_50); // 17.5% of prevRatio
-
-        // prevRatio = 5_000e45 / 1 hours, newRatio = 6_000e45 / 61 minutes
-        // delta ~= 18.0% of prevRatio > ratioStep 17.5%
-        vm.expectRevert("SBEBeam/ratio-delta-above-step");
-        vm.prank(bud);
-        beam.set(6_000e45, 0.5e18, 61 minutes);
-
-        // prevRatio = 5_000e45 / 1 hours, newRatio = 4_000e45 / 59 minutes
-        // delta ~= 18.6% of prevRatio > ratioStep 17.5%
-        vm.expectRevert("SBEBeam/ratio-delta-above-step");
-        vm.prank(bud);
-        beam.set(4_000e45, 0.5e18, 59 minutes);
-    }
-
-    function testSetRatioDeltaWithinStep() public {
-        // Same change as above, but with a ratio step that accommodates it.
-        vm.prank(pauseProxy);
-        beam.file("ratioStep", 19_00); // 19% of prevRatio
-
-        uint256 snapshotId = vm.snapshot();
-
-        // delta ~= 18.0% of prevRatio <= ratioStep 19%
-        vm.prank(bud);
-        beam.set(6_000e45, 0.5e18, 61 minutes);
-        assertEq(kicker.kbump(), 6_000e45);
-        assertEq(splitter.hop(), 61 minutes);
-
-        vm.revertTo(snapshotId);
-
-        // delta ~= 18.6% of prevRatio <= ratioStep 19%
-        vm.prank(bud);
-        beam.set(4_000e45, 0.5e18, 59 minutes);
-        assertEq(kicker.kbump(), 4_000e45);
-        assertEq(splitter.hop(), 59 minutes);
-    }
-
-    // The ratio check uses the bounded (clamped-into-range) previous values, not the raw
-    // on-chain ones. So a value that drifted out of range can be pulled back in a single
-    // set() without the ratio guard tripping on the large raw-vs-new gap.
-    function testSetRatioUsesBoundedPrevKbump() public {
-        vm.startPrank(pauseProxy);
-        kicker.file("kbump", uint256(50_000e45)); // above max (10_000e45)
-        beam.file("ratioStep", 10_00);            // 10%
-        vm.stopPrank();
-
-        // bounded prevRatio = clamp(50_000e45) / 1 hours = 10_000e45 / 1 hours
-        // newRatio          = 9_900e45 / 1 hours -> delta ~1% of bounded prevRatio <= 10%
-        // (With the raw 50_000e45 prev the delta would be ~80% and this would revert.)
-        vm.prank(bud);
-        beam.set(9_900e45, 0.5e18, 1 hours);
-        assertEq(kicker.kbump(), 9_900e45);
-    }
-
-    function testSetRatioUsesBoundedPrevHop() public {
-        vm.startPrank(pauseProxy);
-        splitter.file("hop", 2 days);  // above max (1 days)
-        beam.file("ratioStep", 10_00); // 10%
-        vm.stopPrank();
-
-        // bounded prevRatio = 5_000e45 / clamp(2 days) = 5_000e45 / 1 days
-        // newRatio          = 5_000e45 / (1 days - 5 minutes) -> delta ~0.35% <= 10%
-        // (With the raw 2 days prev the delta would be ~100% and this would revert.)
-        vm.prank(bud);
-        beam.set(5_000e45, 0.5e18, 1 days - 5 minutes);
-        assertEq(splitter.hop(), 1 days - 5 minutes);
-    }
-
-    // Simulate state where the current on-chain value is below the newly tightened min.
-    // _check should clamp `old` up to min before the delta check, so the operator
-    // can still move toward min without tripping step.
-    function testSetClampsOldBelowMinKbump() public {
-        vm.startPrank(pauseProxy);
-        kicker.file("kbump", uint256(500e45));      // below min (1_000e45)
-        beam.file("kbump", "step", 10_00);          // 10% of clamped old (1_000e45) = 100e45 == delta
-        vm.stopPrank();
-
-        // 1_100e45 (new) - clamp(500e45, [1_000e45, 10_000e45]) = 1_100e45 - 1_000e45 = 100e45, OK
-        vm.prank(bud);
-        beam.set(1_100e45, 0.5e18, 1 hours);
-        assertEq(kicker.kbump(), 1_100e45);
-    }
-
-    function testSetClampsOldBelowMinBurn() public {
-        vm.startPrank(pauseProxy);
-        splitter.file("burn", 0.1e18);              // below new min (0.3e18)
-        beam.file("burn", "min", 0.3e18);
-        beam.file("burn", "step", 16_67);           // ~16.67% of clamped old (0.3e18) ~= 0.05e18 (>= delta)
-        vm.stopPrank();
-
-        // 0.35e18 (new) - clamp(0.1e18, [0.3e18, WAD]) = 0.35e18 - 0.3e18 = 0.05e18, OK
-        vm.prank(bud);
-        beam.set(5_000e45, 0.35e18, 1 hours);
-        assertEq(splitter.burn(), 0.35e18);
-    }
-
-    function testSetClampsOldBelowMinHop() public {
-        vm.startPrank(pauseProxy);
-        splitter.file("hop", 30 seconds);           // below min (1 minutes)
-        beam.file("hop", "step", 500_00);           // 500% of clamped old (1 minutes) = 5 minutes == delta
-        vm.stopPrank();
-
-        // 6 minutes (new) - clamp(30 seconds, [1 minutes, 1 days]) = 6 minutes - 1 minutes = 5 minutes, OK
-        vm.prank(bud);
-        beam.set(5_000e45, 0.5e18, 6 minutes);
-        assertEq(splitter.hop(),         6 minutes);
-        assertEq(farm.rewardsDuration(), 6 minutes);
-    }
-
-    function testSetClampsOldAboveMaxKbump() public {
-        vm.startPrank(pauseProxy);
-        kicker.file("kbump", uint256(50_000e45));   // above max (10_000e45)
-        beam.file("kbump", "step", 1_00);           // 1% of clamped old (10_000e45) = 100e45 == delta
-        vm.stopPrank();
-
-        // clamp(50_000e45, [..., 10_000e45]) - 9_900e45 (new) = 100e45, OK
-        vm.prank(bud);
-        beam.set(9_900e45, 0.5e18, 1 hours);
-        assertEq(kicker.kbump(), 9_900e45);
-    }
-
-    function testSetClampsOldAboveMaxBurn() public {
-        vm.startPrank(pauseProxy);
-        splitter.file("burn", 2e18);                // above max (WAD)
-        beam.file("burn", "step", 5_00);            // 5% of clamped old (WAD) = 0.05e18 == delta
-        vm.stopPrank();
-
-        // clamp(2e18, [0, WAD]) - 0.95e18 (new) = 0.05e18, OK
-        vm.prank(bud);
-        beam.set(5_000e45, 0.95e18, 1 hours);
-        assertEq(splitter.burn(), 0.95e18);
-    }
-
-    function testSetClampsOldAboveMaxHop() public {
-        vm.startPrank(pauseProxy);
-        splitter.file("hop", 2 days);               // above max (1 days)
-        beam.file("hop", "step", 35);               // 35 bps (~0.35%) of clamped old (1 days) ~= 302 seconds (>= delta 300)
-        vm.stopPrank();
-
-        // clamp(2 days, [1 minutes, 1 days]) - (1 days - 5 minutes) (new) = 5 minutes, OK
-        vm.prank(bud);
-        beam.set(5_000e45, 0.5e18, 1 days - 5 minutes);
-        assertEq(splitter.hop(),         1 days - 5 minutes);
-        assertEq(farm.rewardsDuration(), 1 days - 5 minutes);
+        beam.set(3_600e45, 0.5e18, 1 hours); // 3_600e45 / 3600 = 1e45 == maxRate
+        assertEq(kicker.kbump(), 3_600e45);
+        assertEq(splitter.hop(), 1 hours);
     }
 }

@@ -94,7 +94,6 @@ interface SBEBeamLike {
     function farmOwner() external view returns (address);
     function kiss(address) external;
     function file(bytes32, uint256) external;
-    function file(bytes32, bytes32, uint256) external;
 }
 
 struct FlapperUniV2Config {
@@ -132,20 +131,13 @@ struct KickerConfig {
     bytes32 chainlogKey;
 }
 
-struct SBEBeamRangeConfig {
-    uint256 min;
-    uint256 max;
-    uint256 step;
-}
-
 struct SBEBeamConfig {
-    uint256             ratioStep;
-    uint256             tau;
-    SBEBeamRangeConfig  kbump;
-    SBEBeamRangeConfig  burn;
-    SBEBeamRangeConfig  hop;
-    address[]           buds;
-    bytes32             chainlogKey;
+    uint256   maxKbump;
+    uint256   minHop;
+    uint256   maxRate;
+    uint256   tau;
+    address[] buds;
+    bytes32   chainlogKey;
 }
 
 library FlapperInit {
@@ -312,20 +304,10 @@ library FlapperInit {
         require(SBEBeamLike(beam).splitter()  == splitter,  "SBEBeam splitter mismatch");
         require(SBEBeamLike(beam).farmOwner() == farmOwner, "SBEBeam farmOwner mismatch");
 
-        SBEBeamLike(beam).file("ratioStep", cfg.ratioStep);
-        SBEBeamLike(beam).file("tau", cfg.tau);
-
-        SBEBeamLike(beam).file("kbump", "max",  cfg.kbump.max);
-        SBEBeamLike(beam).file("kbump", "min",  cfg.kbump.min);
-        SBEBeamLike(beam).file("kbump", "step", cfg.kbump.step);
-
-        SBEBeamLike(beam).file("burn", "max",  cfg.burn.max);
-        SBEBeamLike(beam).file("burn", "min",  cfg.burn.min);
-        SBEBeamLike(beam).file("burn", "step", cfg.burn.step);
-
-        SBEBeamLike(beam).file("hop", "max",  cfg.hop.max);
-        SBEBeamLike(beam).file("hop", "min",  cfg.hop.min);
-        SBEBeamLike(beam).file("hop", "step", cfg.hop.step);
+        SBEBeamLike(beam).file("maxKbump", cfg.maxKbump);
+        SBEBeamLike(beam).file("minHop",   cfg.minHop);
+        SBEBeamLike(beam).file("maxRate",  cfg.maxRate);
+        SBEBeamLike(beam).file("tau",      cfg.tau);
 
         KickerLike(kicker).rely(beam);
         SplitterLike(splitter).rely(beam);
