@@ -88,6 +88,7 @@ contract FarmOwner {
 
     // The farm sends recovered tokens to its owner (this contract), so forward them
     // on to `to` in the same call; otherwise they would be stranded in FarmOwner.
+    // Assumes a standard token that reverts on failure and doesn't implement fee-on-transfer.
     function recoverERC20(address tokenAddress, address to, uint256 tokenAmount) external auth {
         farm.recoverERC20(tokenAddress, tokenAmount);
         GemLike(tokenAddress).transfer(to, tokenAmount);
