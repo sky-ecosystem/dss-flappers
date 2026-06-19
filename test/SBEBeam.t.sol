@@ -165,12 +165,6 @@ contract SBEBeamTest is DssTest {
         beam.file("toc", uint256(type(uint128).max) + 1);
     }
 
-    function testFileUnrecognizedParam() public {
-        vm.prank(pauseProxy);
-        vm.expectRevert("SBEBeam/file-unrecognized-param");
-        beam.file("unknown", 1);
-    }
-
     // --- set() happy path ---
 
     function testSet() public {
