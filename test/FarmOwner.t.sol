@@ -20,6 +20,8 @@ import "dss-test/DssTest.sol";
 
 import { FarmOwner } from "src/FarmOwner.sol";
 
+import { GemMock } from "test/mocks/GemMock.sol";
+
 contract FarmMock {
     uint256 public rewardsDuration;
     address public rewardsDistribution;
@@ -38,9 +40,12 @@ contract FarmMock {
         rewardsDistribution = _rewardsDistribution;
     }
 
+    // Mirrors Synthetix StakingRewards: recovered tokens are sent to the owner,
+    // which in this deployment is the FarmOwner contract calling in (msg.sender).
     function recoverERC20(address tokenAddress, uint256 tokenAmount) external {
         recoveredToken  = tokenAddress;
         recoveredAmount = tokenAmount;
+        GemMock(tokenAddress).transfer(msg.sender, tokenAmount);
     }
 
     function setPaused(bool _paused) external {
@@ -106,9 +111,22 @@ contract FarmOwnerTest is DssTest {
     }
 
     function testRecoverERC20Forwards() public {
-        owner.recoverERC20(address(0xBEEF), 1_234 ether);
-        assertEq(farm.recoveredToken(),  address(0xBEEF));
-        assertEq(farm.recoveredAmount(), 1_234 ether);
+        GemMock gem = new GemMock(0);
+        gem.mint(address(farm), 1_234);
+
+        assertEq(gem.balanceOf(address(farm)), 1_234);
+        assertEq(gem.balanceOf(address(owner)), 0);
+        assertEq(gem.balanceOf(address(0xBEEF)), 0);
+
+        owner.recoverERC20(address(gem), address(0xBEEF), 1_234);
+
+        assertEq(farm.recoveredToken(),  address(gem));
+        assertEq(farm.recoveredAmount(), 1_234);
+
+        // Tokens must end up with the recipient, not stranded in the farm or FarmOwner.
+        assertEq(gem.balanceOf(address(farm)), 0);
+        assertEq(gem.balanceOf(address(owner)), 0);
+        assertEq(gem.balanceOf(address(0xBEEF)), 1_234);
     }
 
     function testSetPausedForwards() public {

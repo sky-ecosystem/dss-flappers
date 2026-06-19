@@ -25,6 +25,10 @@ interface FarmLike {
     function acceptOwnership() external;
 }
 
+interface GemLike {
+    function transfer(address, uint256) external;
+}
+
 // FarmOwner holds ownership of an external Synthetix-style StakingRewards farm
 // on behalf of governance. Every `onlyOwner` method on the farm is exposed as a
 // ward-gated forwarder so wards (typically MCD_PAUSE_PROXY and the SBEBeam)
@@ -82,8 +86,11 @@ contract FarmOwner {
         farm.setRewardsDistribution(rewardsDistribution);
     }
 
-    function recoverERC20(address tokenAddress, uint256 tokenAmount) external auth {
+    // The farm sends recovered tokens to its owner (this contract), so forward them
+    // on to `to` in the same call; otherwise they would be stranded in FarmOwner.
+    function recoverERC20(address tokenAddress, address to, uint256 tokenAmount) external auth {
         farm.recoverERC20(tokenAddress, tokenAmount);
+        GemLike(tokenAddress).transfer(to, tokenAmount);
     }
 
     function setPaused(bool paused) external auth {
