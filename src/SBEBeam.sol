@@ -85,6 +85,8 @@ contract SBEBeam {
         splitter  = SplitterLike(kicker.splitter());
         farmOwner = FarmOwnerLike(_farmOwner);
 
+        minHop = 5 minutes;
+
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
     }
@@ -115,6 +117,7 @@ contract SBEBeam {
         if (what == "maxKbump") {
             maxKbump = data;
         } else if (what == "minHop") {
+            require(data >= 5 minutes, "SBEBeam/minHop-too-low");
             minHop = data;
         } else if (what == "maxRate") {
             maxRate = data;

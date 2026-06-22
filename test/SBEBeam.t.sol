@@ -96,7 +96,7 @@ contract SBEBeamTest is DssTest {
         vm.startPrank(pauseProxy);
         FlapperInit.initSBEBeam(dss, address(beam), address(farmOwner), SBEBeamConfig({
             maxKbump:    10_000e45,
-            minHop:      1 minutes,
+            minHop:      5 minutes,
             maxRate:     type(uint256).max, // permissive; rate-specific tests file their own cap
             tau:         0,
             buds:        buds,
@@ -115,6 +115,7 @@ contract SBEBeamTest is DssTest {
         assertEq(address(b.kicker()),    address(kicker));
         assertEq(address(b.splitter()),  address(splitter));
         assertEq(address(b.farmOwner()), address(farmOwner));
+        assertEq(b.minHop(),             5 minutes);
         assertEq(b.wards(address(this)), 1);
     }
 
@@ -163,6 +164,19 @@ contract SBEBeamTest is DssTest {
         vm.prank(pauseProxy);
         vm.expectRevert("SBEBeam/invalid-toc-value");
         beam.file("toc", uint256(type(uint128).max) + 1);
+    }
+
+    function testFileMinHopTooLow() public {
+        // minHop has a hard 5-minute floor that governance itself cannot go below.
+        vm.prank(pauseProxy);
+        vm.expectRevert("SBEBeam/minHop-too-low");
+        beam.file("minHop", 5 minutes - 1 seconds);
+    }
+
+    function testFileMinHopAtFloor() public {
+        vm.prank(pauseProxy);
+        beam.file("minHop", 5 minutes); // exactly at the floor
+        assertEq(beam.minHop(), 5 minutes);
     }
 
     // --- set() happy path ---
@@ -277,14 +291,14 @@ contract SBEBeamTest is DssTest {
     function testSetBelowMinHop() public {
         vm.expectRevert("SBEBeam/hop-below-min");
         vm.prank(bud);
-        beam.set(5_000e45, 0.5e18, 59 seconds); // hop below min (1 minutes)
+        beam.set(5_000e45, 0.5e18, 5 minutes - 1 seconds); // hop below min (5 minutes)
     }
 
     function testSetAtMinHop() public {
         vm.prank(bud);
-        beam.set(5_000e45, 0.5e18, 1 minutes); // hop exactly at min
-        assertEq(splitter.hop(),         1 minutes);
-        assertEq(farm.rewardsDuration(), 1 minutes);
+        beam.set(5_000e45, 0.5e18, 5 minutes); // hop exactly at min
+        assertEq(splitter.hop(),         5 minutes);
+        assertEq(farm.rewardsDuration(), 5 minutes);
     }
 
     // hop may be raised freely, but it cannot be set to the halt sentinel (type(uint256).max),
@@ -359,7 +373,7 @@ contract SBEBeamTest is DssTest {
         buds[0] = bud;
         FlapperInit.initSBEBeam(dss, beam_, farmOwner_, SBEBeamConfig({
             maxKbump:    10_000e45,
-            minHop:      1 minutes,
+            minHop:      5 minutes,
             maxRate:     type(uint256).max,
             tau:         0,
             buds:        buds,
