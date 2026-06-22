@@ -308,7 +308,7 @@ contract SBEBeamTest is DssTest {
     function testSetAboveMaxBurn() public {
         vm.expectRevert("SBEBeam/burn-above-max");
         vm.prank(bud);
-        beam.set(5_000e45, WAD + 1, 1 hours); // burn above WAD (100%) would halt Splitter.kick
+        beam.set(5_000e45, WAD + 1, 1 hours); // burn above WAD (100%) would revert
     }
 
     function testSetAtMaxBurn() public {
