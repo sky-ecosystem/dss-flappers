@@ -66,6 +66,7 @@ interface SplitterLike {
 }
 
 interface FarmLike {
+    function owner() external view returns (address);
     function rewardsToken() external view returns (address);
     function setRewardsDistribution(address) external;
     function setRewardsDuration(uint256) external;
@@ -74,7 +75,6 @@ interface FarmLike {
 
 interface FarmOwnerLike {
     function farm() external view returns (address);
-    function wards(address) external view returns (uint256);
     function rely(address) external;
     function acceptOwnership() external;
 }
@@ -298,11 +298,13 @@ library FlapperInit {
     ) internal {
         address kicker     = dss.chainlog.getAddress("MCD_KICK");
         address splitter   = dss.chainlog.getAddress("MCD_SPLIT");
+        address farm       = SplitterLike(splitter).farm();
 
         // Sanity checks
         require(SBEBeamLike(beam).kicker()    == kicker,    "SBEBeam kicker mismatch");
         require(SBEBeamLike(beam).splitter()  == splitter,  "SBEBeam splitter mismatch");
         require(SBEBeamLike(beam).farmOwner() == farmOwner, "SBEBeam farmOwner mismatch");
+        require(FarmLike(farm).owner()        == farmOwner, "SBEBeam farm not owned");
 
         SBEBeamLike(beam).file("maxKbump", cfg.maxKbump);
         SBEBeamLike(beam).file("minHop",   cfg.minHop);

@@ -345,4 +345,75 @@ contract SBEBeamTest is DssTest {
         assertEq(kicker.kbump(), 3_600e45);
         assertEq(splitter.hop(), 1 hours);
     }
+
+    // --- deploy/init sanity-check reverts ---
+
+    // FlapperInit's functions are internal (inlined), so route them through these
+    // external wrappers; that gives vm.expectRevert a single call frame to match.
+    function initFarmOwnerExt(address farmOwner_) external {
+        FlapperInit.initFarmOwner(dss, farmOwner_);
+    }
+
+    function initSBEBeamExt(address beam_, address farmOwner_) external {
+        address[] memory buds = new address[](1);
+        buds[0] = bud;
+        FlapperInit.initSBEBeam(dss, beam_, farmOwner_, SBEBeamConfig({
+            maxKbump:    10_000e45,
+            minHop:      1 minutes,
+            maxRate:     type(uint256).max,
+            tau:         0,
+            buds:        buds,
+            chainlogKey: "MCD_SBE_BEAM"
+        }));
+    }
+
+    function testInitFarmOwnerFarmMismatch() public {
+        // A FarmOwner pointing at the wrong farm must be rejected.
+        vm.mockCall(
+            address(farmOwner),
+            abi.encodeWithSignature("farm()"),
+            abi.encode(address(0xBAD))
+        );
+
+        vm.expectRevert("FarmOwner farm mismatch");
+        this.initFarmOwnerExt(address(farmOwner));
+    }
+
+    function testInitSBEBeamKickerMismatch() public {
+        vm.mockCall(
+            address(beam),
+            abi.encodeWithSignature("kicker()"),
+            abi.encode(address(0xBAD))
+        );
+
+        vm.expectRevert("SBEBeam kicker mismatch");
+        this.initSBEBeamExt(address(beam), address(farmOwner));
+    }
+
+    function testInitSBEBeamSplitterMismatch() public {
+        vm.mockCall(
+            address(beam),
+            abi.encodeWithSignature("splitter()"),
+            abi.encode(address(0xBAD))
+        );
+
+        vm.expectRevert("SBEBeam splitter mismatch");
+        this.initSBEBeamExt(address(beam), address(farmOwner));
+    }
+
+    function testInitSBEBeamFarmOwnerMismatch() public {
+        vm.expectRevert("SBEBeam farmOwner mismatch");
+        this.initSBEBeamExt(address(beam), address(0xBAD));
+    }
+
+    function testInitSBEBeamFarmNotOwned() public {
+        vm.mockCall(
+            address(farm),
+            abi.encodeWithSignature("owner()"),
+            abi.encode(address(0xBAD))
+        );
+
+        vm.expectRevert("SBEBeam farm not owned");
+        this.initSBEBeamExt(address(beam), address(farmOwner));
+    }
 }
