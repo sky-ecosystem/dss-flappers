@@ -56,13 +56,6 @@ This contract allows bypassing the governance delay when disabling the Splitter 
 
 Holds ownership of an external Synthetix-style `StakingRewards` farm (the `Splitter.farm`) on behalf of governance. The farm exposes a single-owner administration model, so `FarmOwner` takes that owner slot and re-exposes every `onlyOwner` method as a ward-gated forwarder. This lets multiple wards (typically the `MCD_PAUSE_PROXY` and the `SBEBeam`) share farm administration while the farm itself only ever knows one owner.
 
-Forwarded methods:
-* `setRewardsDuration` - Set the duration of the rewards distribution window.
-* `setRewardsDistribution` - Set the address allowed to notify new rewards.
-* `recoverERC20` - Recover tokens accidentally sent to the farm.
-* `setPaused` - Pause or unpause the farm.
-* `nominateNewOwner` / `acceptOwnership` - Two-step ownership transfer, e.g. to hand the farm back to governance directly.
-
 ### SBEBeam
 
 A bounded, rate-limited parameter setter for the Smart Burn Engine. It allows a permissioned `facilitator` (a `bud`) to periodically adjust the three core burn-engine knobs within governance-defined safety bounds, without going through the full governance delay each time. In a single `set` call it atomically updates:
