@@ -369,6 +369,23 @@ contract SBEBeamTest is DssTest {
         assertEq(farm.rewardsDuration(), 1 hours); // untouched
     }
 
+    function testSetMaxBurnWorksWithoutFarmOwner() public {
+        // Unset the farmOwner entirely.
+        vm.prank(pauseProxy);
+        beam.file("farmOwner", address(0));
+        assertEq(address(beam.farmOwner()), address(0));
+
+        // With burn == WAD the farm is never touched, so set() succeeds even though
+        // farmOwner is unset — the `burn < WAD` guard short-circuits before farmOwner.farm().
+        vm.expectCall(address(farm), abi.encodeWithSelector(FarmLike.setRewardsDuration.selector), 0);
+        vm.prank(bud);
+        beam.set(5_000e45, WAD, 2 hours);
+
+        assertEq(kicker.kbump(),  5_000e45);
+        assertEq(splitter.burn(), WAD);
+        assertEq(splitter.hop(),  2 hours);
+    }
+
     // Lowering burn is always allowed (zero is the safe direction; at worst it stalls the burn stream).
     function testSetBurnCanGoToZero() public {
         vm.prank(bud);
