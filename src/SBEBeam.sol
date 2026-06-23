@@ -27,7 +27,12 @@ interface SplitterLike {
 }
 
 interface FarmOwnerLike {
+    function farm() external view returns (address);
     function setRewardsDuration(uint256) external;
+}
+
+interface FarmLike {
+    function rewardsDuration() external view returns (uint256);
 }
 
 contract SBEBeam {
@@ -157,9 +162,11 @@ contract SBEBeam {
 
         kicker.file("kbump", kbump);
         splitter.file("burn", burn);
-        if (hop != splitter.hop()) {
+        splitter.file("hop", hop);
+        if (hop != FarmLike(farmOwner.farm()).rewardsDuration()) {
             // Avoid to extend duration of current stream if hop did not change
-            splitter.file("hop", hop);
+            // Indirectly allow to fix a possible desync between splitter and
+            // the farm for whatever reason that could have happened
             farmOwner.setRewardsDuration(hop);
         }
 

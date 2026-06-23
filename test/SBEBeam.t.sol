@@ -240,6 +240,24 @@ contract SBEBeamTest is DssTest {
         assertEq(farm.rewardsDuration(), newHop);
     }
 
+    function testSetFixesFarmSplitterDesync() public {
+        // Force the farm's rewardsDuration out of sync with splitter.hop.
+        uint256 hop_ = splitter.hop();
+        vm.prank(address(farmOwner));
+        farm.setRewardsDuration(hop_ + 7 minutes);
+        assertNotEq(farm.rewardsDuration(), hop_);
+
+        // The requested hop equals splitter.hop (no change on the splitter side), yet
+        // set() still re-rates the farm: the gate compares against the farm's own
+        // rewardsDuration, so it re-syncs the farm back to the splitter.
+        vm.expectCall(address(farm), abi.encodeWithSelector(FarmLike.setRewardsDuration.selector, hop_), 1);
+        vm.prank(bud);
+        beam.set(5_000e45, 0.5e18, hop_);
+
+        assertEq(splitter.hop(),         hop_);
+        assertEq(farm.rewardsDuration(), hop_); // desync fixed
+    }
+
     // --- set() gating ---
 
     function testSetModuleHalted() public {
