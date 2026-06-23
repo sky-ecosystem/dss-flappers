@@ -151,6 +151,10 @@ contract SBEBeamTest is DssTest {
         assertEq(beam.buds(usr), 0);
     }
 
+    function testFileAddress() public {
+        checkFileAddress(address(beam), "SBEBeam", ["farmOwner"]);
+    }
+
     function testFileUint() public {
         checkFileUint(address(beam), "SBEBeam", ["maxKbump", "minHop", "maxRate", "tau", "toc"]);
     }
@@ -348,6 +352,21 @@ contract SBEBeamTest is DssTest {
         vm.prank(bud);
         beam.set(5_000e45, WAD, 1 hours); // burn exactly at WAD (100%)
         assertEq(splitter.burn(), WAD);
+    }
+
+    function testSetMaxBurnSkipsRewardsDuration() public {
+        // With burn == WAD nothing is staked, so the farm is never touched even
+        // when hop changes — no setRewardsDuration call and rewardsDuration stays put.
+        uint256 newHop = 2 hours;
+        assertNotEq(farm.rewardsDuration(), newHop);
+
+        vm.expectCall(address(farm), abi.encodeWithSelector(FarmLike.setRewardsDuration.selector), 0);
+        vm.prank(bud);
+        beam.set(5_000e45, WAD, newHop);
+
+        assertEq(splitter.burn(),        WAD);
+        assertEq(splitter.hop(),         newHop);
+        assertEq(farm.rewardsDuration(), 1 hours); // untouched
     }
 
     // Lowering burn is always allowed (zero is the safe direction; at worst it stalls the burn stream).

@@ -40,17 +40,17 @@ contract SBEBeam {
 
     mapping(address => uint256) public wards;
     mapping(address => uint256) public buds;
-    uint256 public maxKbump; // [rad]     Maximum allowed value for Kicker.kbump
-    uint256 public minHop;   // [seconds] Minimum allowed value for Splitter.hop (also applied to farm.rewardsDuration)
-    uint256 public maxRate;  // [rad/s]   Maximum allowed burn rate (kbump / hop)
-    uint64  public tau;      // Cooldown period between set() calls in seconds
-    uint128 public toc;      // Last time when set() was called (Unix timestamp)
+    FarmOwnerLike public farmOwner; // Owner of the Splitter.farm, used to re-rate the farm's rewardsDuration
+    uint256       public maxKbump;  // [rad]     Maximum allowed value for Kicker.kbump
+    uint256       public minHop;    // [seconds] Minimum allowed value for Splitter.hop (also applied to farm.rewardsDuration)
+    uint256       public maxRate;   // [rad/s]   Maximum allowed burn rate (kbump / hop)
+    uint64        public tau;       // Cooldown period between set() calls in seconds
+    uint128       public toc;       // Last time when set() was called (Unix timestamp)
 
     // --- immutables ---
 
-    KickerLike    public immutable kicker;
-    SplitterLike  public immutable splitter;
-    FarmOwnerLike public immutable farmOwner;
+    KickerLike   public immutable kicker;
+    SplitterLike public immutable splitter;
 
     // --- constants ---
 
@@ -64,6 +64,7 @@ contract SBEBeam {
     event Kiss(address indexed usr);
     event Diss(address indexed usr);
     event File(bytes32 indexed what, uint256 data);
+    event File(bytes32 indexed what, address data);
     event Set(uint256 kbump, uint256 burn, uint256 hop);
 
     // --- modifiers ---
@@ -118,6 +119,13 @@ contract SBEBeam {
         emit Diss(usr);
     }
 
+    function file(bytes32 what, address data) external auth {
+        if (what == "farmOwner") {
+            farmOwner = FarmOwnerLike(data);
+        } else revert("SBEBeam/file-unrecognized-param");
+        emit File(what, data);
+    }
+
     function file(bytes32 what, uint256 data) external auth {
         if (what == "maxKbump") {
             maxKbump = data;
@@ -163,10 +171,12 @@ contract SBEBeam {
         kicker.file("kbump", kbump);
         splitter.file("burn", burn);
         splitter.file("hop", hop);
-        if (hop != FarmLike(farmOwner.farm()).rewardsDuration()) {
-            // Avoid to extend duration of current stream if hop did not change
-            // Indirectly allow to fix a possible desync between splitter and
-            // the farm for whatever reason that could have happened
+        // When burn == WAD all surplus goes to the burn engine and nothing is
+        // staked, so there is no farm reward stream to re-rate. Otherwise:
+        // - avoid extending the duration of the current stream if hop did not change, and
+        // - indirectly allow fixing a possible desync between splitter and the
+        //   farm for whatever reason that could have happened (included a prior burn=WAD).
+        if (burn < WAD && hop != FarmLike(farmOwner.farm()).rewardsDuration()) {
             farmOwner.setRewardsDuration(hop);
         }
 

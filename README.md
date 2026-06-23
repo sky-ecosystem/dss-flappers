@@ -61,11 +61,12 @@ Holds ownership of an external Synthetix-style `StakingRewards` farm (the `Split
 A bounded, rate-limited parameter setter for the Smart Burn Engine. It allows a permissioned `facilitator` (a `bud`) to periodically adjust the three core burn-engine knobs within governance-defined safety bounds, without going through the full governance delay each time. In a single `set` call it atomically updates:
 * `Kicker.kbump` - Fixed lot size.
 * `Splitter.burn` - Percentage of surplus routed to the burn engine.
-* `Splitter.hop` - Kick cadence (also applied to the farm's `rewardsDuration` via `FarmOwner`).
+* `Splitter.hop` - Kick cadence (also applied to the farm's `rewardsDuration` via `FarmOwner`, unless `burn == WAD`, in which case nothing is staked and the farm is left untouched).
 
 The bounds only constrain the throughput-increasing directions, so a facilitator can never accelerate the burn beyond what governance has sanctioned. The opposite moves — lowering `kbump` or raising `hop` — are always permitted: at worst they stall the burn stream (a denial of service), which governance can revive on its own. This asymmetry is what makes the module safe to drive with an operator. `burn` is additionally capped at `WAD` (100%), since the `Splitter` does not validate it and a value above `WAD` would make `Splitter.kick` underflow and halt.
 
 Configurable Parameters:
+* `farmOwner` - The `FarmOwner` used to re-rate the farm's `rewardsDuration`. Fileable by governance so it can be repointed if the farm's ownership wrapper is ever migrated.
 * `maxKbump` - Maximum allowed value for `Kicker.kbump`. There is no minimum; `kbump` may be lowered freely, but it must be a whole multiple of `RAY` (matching the `Kicker` deploy invariant and avoiding `kick` rounding dust).
 * `minHop` - Minimum allowed value for `Splitter.hop`. There is no maximum; `hop` may be raised freely, except it cannot be set to `type(uint256).max` — that value is the halt sentinel reserved for governance (see Halting below), so a facilitator cannot use `set` to halt the engine and lock itself out.
 * `maxRate` - Maximum allowed burn rate, measured as `kbump / hop` (the total surplus throughput). This caps the combined throughput even when `kbump` and `hop` are each individually within their own bound.
