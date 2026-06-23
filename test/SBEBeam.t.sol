@@ -78,10 +78,11 @@ contract SBEBeamTest is DssTest {
         }));
 
         vm.startPrank(pauseProxy);
-        FlapperInit.initFarmOwner(dss, address(farmOwner));
+        FlapperInit.initFarmOwner(dss, address(farmOwner), "REWARDS_LSSKY_SKY_OWNER");
         vm.stopPrank();
 
         assertEq(farm.owner(), address(farmOwner));
+        assertEq(dss.chainlog.getAddress("REWARDS_LSSKY_SKY_OWNER"), address(farmOwner));
 
         // Deploy the SBEBeam pointing at the FarmOwner.
         beam = SBEBeam(FlapperDeploy.deploySBEBeam({
@@ -365,7 +366,7 @@ contract SBEBeamTest is DssTest {
     // FlapperInit's functions are internal (inlined), so route them through these
     // external wrappers; that gives vm.expectRevert a single call frame to match.
     function initFarmOwnerExt(address farmOwner_) external {
-        FlapperInit.initFarmOwner(dss, farmOwner_);
+        FlapperInit.initFarmOwner(dss, farmOwner_, "FARM_OWNER");
     }
 
     function initSBEBeamExt(address beam_, address farmOwner_) external {

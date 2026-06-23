@@ -279,7 +279,8 @@ library FlapperInit {
     // every `onlyOwner` method is gated behind its wards going forward.
     function initFarmOwner(
         DssInstance memory dss,
-        address            farmOwner
+        address            farmOwner,
+        bytes32            chainlogKey
     ) internal {
         address splitter = dss.chainlog.getAddress("MCD_SPLIT");
         address farm     = SplitterLike(splitter).farm();
@@ -288,6 +289,8 @@ library FlapperInit {
 
         FarmLike(farm).nominateNewOwner(farmOwner);
         FarmOwnerLike(farmOwner).acceptOwnership();
+
+        dss.chainlog.setAddress(chainlogKey, farmOwner);
     }
 
     function initSBEBeam(
