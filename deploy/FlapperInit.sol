@@ -91,9 +91,9 @@ interface KickerLike {
 interface SBEBeamLike {
     function kicker() external view returns (address);
     function splitter() external view returns (address);
-    function farmOwner() external view returns (address);
     function kiss(address) external;
     function file(bytes32, uint256) external;
+    function file(bytes32, address) external;
 }
 
 struct FlapperUniV2Config {
@@ -304,15 +304,15 @@ library FlapperInit {
         address farm       = SplitterLike(splitter).farm();
 
         // Sanity checks
-        require(SBEBeamLike(beam).kicker()    == kicker,    "SBEBeam kicker mismatch");
-        require(SBEBeamLike(beam).splitter()  == splitter,  "SBEBeam splitter mismatch");
-        require(SBEBeamLike(beam).farmOwner() == farmOwner, "SBEBeam farmOwner mismatch");
-        require(FarmLike(farm).owner()        == farmOwner, "SBEBeam farm not owned");
+        require(SBEBeamLike(beam).kicker()   == kicker,    "SBEBeam kicker mismatch");
+        require(SBEBeamLike(beam).splitter() == splitter,  "SBEBeam splitter mismatch");
+        require(FarmLike(farm).owner()       == farmOwner, "SBEBeam farm not owned");
 
-        SBEBeamLike(beam).file("maxKbump", cfg.maxKbump);
-        SBEBeamLike(beam).file("minHop",   cfg.minHop);
-        SBEBeamLike(beam).file("maxRate",  cfg.maxRate);
-        SBEBeamLike(beam).file("tau",      cfg.tau);
+        SBEBeamLike(beam).file("farmOwner", farmOwner);
+        SBEBeamLike(beam).file("maxKbump",  cfg.maxKbump);
+        SBEBeamLike(beam).file("minHop",    cfg.minHop);
+        SBEBeamLike(beam).file("maxRate",   cfg.maxRate);
+        SBEBeamLike(beam).file("tau",       cfg.tau);
 
         KickerLike(kicker).rely(beam);
         SplitterLike(splitter).rely(beam);

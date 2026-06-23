@@ -86,10 +86,9 @@ contract SBEBeam {
 
     // --- constructor ---
 
-    constructor(address _kicker, address _farmOwner) {
-        kicker    = KickerLike(_kicker);
-        splitter  = SplitterLike(kicker.splitter());
-        farmOwner = FarmOwnerLike(_farmOwner);
+    constructor(address _kicker) {
+        kicker   = KickerLike(_kicker);
+        splitter = SplitterLike(kicker.splitter());
 
         minHop = 5 minutes;
 

@@ -101,12 +101,11 @@ library FlapperDeploy {
 
     function deploySBEBeam(
         address deployer,
-        address owner,
-        address farmOwner
+        address owner
     ) internal returns (address beam) {
         DssInstance memory dss = MCD.loadFromChainlog(LOG);
 
-        beam = address(new SBEBeam(dss.chainlog.getAddress("MCD_KICK"), farmOwner));
+        beam = address(new SBEBeam(dss.chainlog.getAddress("MCD_KICK")));
 
         ScriptTools.switchOwner(beam, deployer, owner);
     }

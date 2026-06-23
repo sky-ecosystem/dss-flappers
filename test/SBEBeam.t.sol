@@ -84,11 +84,10 @@ contract SBEBeamTest is DssTest {
         assertEq(farm.owner(), address(farmOwner));
         assertEq(dss.chainlog.getAddress("REWARDS_LSSKY_SKY_OWNER"), address(farmOwner));
 
-        // Deploy the SBEBeam pointing at the FarmOwner.
+        // Deploy the SBEBeam
         beam = SBEBeam(FlapperDeploy.deploySBEBeam({
             deployer:  address(this),
-            owner:     pauseProxy,
-            farmOwner: address(farmOwner)
+            owner:     pauseProxy
         }));
 
         address[] memory buds = new address[](1);
@@ -104,6 +103,8 @@ contract SBEBeamTest is DssTest {
             chainlogKey: "MCD_SBE_BEAM"
         }));
         vm.stopPrank();
+
+        assertEq(address(beam.farmOwner()), address(farmOwner));
     }
 
     // --- constructor / admin ---
@@ -111,11 +112,10 @@ contract SBEBeamTest is DssTest {
     function testConstructor() public {
         vm.expectEmit();
         emit Rely(address(this));
-        SBEBeam b = new SBEBeam(address(kicker), address(farmOwner));
+        SBEBeam b = new SBEBeam(address(kicker));
 
         assertEq(address(b.kicker()),    address(kicker));
         assertEq(address(b.splitter()),  address(splitter));
-        assertEq(address(b.farmOwner()), address(farmOwner));
         assertEq(b.minHop(),             5 minutes);
         assertEq(b.wards(address(this)), 1);
     }
@@ -451,11 +451,6 @@ contract SBEBeamTest is DssTest {
 
         vm.expectRevert("SBEBeam splitter mismatch");
         this.initSBEBeamExt(address(beam), address(farmOwner));
-    }
-
-    function testInitSBEBeamFarmOwnerMismatch() public {
-        vm.expectRevert("SBEBeam farmOwner mismatch");
-        this.initSBEBeamExt(address(beam), address(0xBAD));
     }
 
     function testInitSBEBeamFarmNotOwned() public {
