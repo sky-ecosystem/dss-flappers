@@ -142,6 +142,8 @@ contract SBEBeam {
     // - kbump must be a whole multiple of RAY, preserving the Kicker deploy invariant and avoiding kick dust.
     // - hop must stay below type(uint256).max: that value is the halt sentinel (see the good modifier),
     //   reserved for governance, so a facilitator cannot use set() to halt and lock itself out of the module.
+    // - Kicker.khump (the flap threshold) is deliberately left out of the set knobs: it is not a value that needs regular
+    //   tuning, and changing it is a more structural governance decision better routed through the full governance process.
     function set(uint256 kbump, uint256 burn, uint256 hop) external toll good {
         require(block.timestamp >= tau + toc, "SBEBeam/too-early");
         toc = uint128(block.timestamp);

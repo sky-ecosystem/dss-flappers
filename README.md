@@ -74,6 +74,8 @@ Configurable Parameters:
 
 `Splitter.burn` is bounded only at its upper end (`burn <= WAD`); it may be lowered freely down to zero.
 
+Note that `maxKbump` must be safe as a standalone kick size, not just safe relative to `minHop` (max rate). Because `hop` only gates the gap since the last kick (`Splitter.zzz`), a long-idle or freshly-deployed Splitter lets a kick fire immediately regardless of `hop`.
+
 Access control:
 * `wards` (`rely`/`deny`) - Governance-level administrators that configure the ranges.
 * `buds` (`kiss`/`diss`) - Facilitators permitted to call `set`.
