@@ -32,6 +32,17 @@ interface FarmLike {
     function owner() external view returns (address);
     function rewardsDuration() external view returns (uint256);
     function setRewardsDuration(uint256) external;
+    function rewardsToken() external view returns (address);
+    function stakingToken() external view returns (address);
+    function notifyRewardAmount(uint256) external;
+    function stake(uint256) external;
+    function withdraw(uint256) external;
+    function totalSupply() external view returns (uint256);
+}
+
+interface TokenLike {
+    function balanceOf(address) external view returns (uint256);
+    function approve(address, uint256) external;
 }
 
 contract SBEBeamTest is DssTest {
@@ -398,6 +409,56 @@ contract SBEBeamTest is DssTest {
         vm.expectRevert("SBEBeam/farm-sanity-failed");
         vm.prank(bud);
         beam.set(5_000e45, 0.5e18, 1 hours);
+    }
+
+    // --- set() should not block farm withdrawals (fuzz) ---
+
+    // A facilitator hammering set() with arbitrary hop/kbump across consecutive blocks
+    // re-rates the farm's rewardRate (via FarmOwner.setRewardsDuration) on every call,
+    // but must never be able to wedge a staker's withdrawal. The only theoretical block
+    // is an overflow of `(Δt * rewardRate * 1e18)` in StakingRewards.rewardPerToken(),
+    // which is unreachable for any realistic reward balance.
+    function testFuzzSetSequenceDoesNotBlockFarmWithdraw(
+        uint64[8]  memory hopSeeds,
+        uint256[8] memory kbumpSeeds
+    ) public {
+        address st = farm.stakingToken();
+        address rt = farm.rewardsToken();
+
+        // A fresh staker deposits principal we will insist on getting back in full.
+        address staker   = address(0x57A);
+        uint256 stakeAmt = 1_000e18;
+        deal(st, staker, stakeAmt);
+        vm.startPrank(staker);
+        TokenLike(st).approve(address(farm), type(uint256).max);
+        farm.stake(stakeAmt);
+        vm.stopPrank();
+
+        // Open an extremely large active reward stream so each set() re-rates rewardRate.
+        uint256 rewardAmt = 1_000_000_000e18;
+        deal(rt, address(farm), TokenLike(rt).balanceOf(address(farm)) + rewardAmt);
+        vm.prank(address(splitter));
+        farm.notifyRewardAmount(rewardAmt);
+
+        // The bud pushes a different hop/kbump on each block.
+        for (uint256 i; i < hopSeeds.length; i++) {
+            uint256 hop   = bound(uint256(hopSeeds[i]), beam.minHop(), 365 days);
+            uint256 kbump = bound(kbumpSeeds[i], 0, beam.maxKbump() / RAY) * RAY;
+
+            vm.prank(bud);
+            beam.set(kbump, 0.5e18, hop); // burn < WAD => farm reward stream is re-rated
+
+            vm.roll(block.number + 1);
+            vm.warp(block.timestamp + 1 hours);
+        }
+
+        // Warp well past any periodFinish to maximise reward accrual (largest Δt), then
+        // the staker must still be able to pull their full principal out.
+        vm.warp(block.timestamp + 366 days);
+        vm.prank(staker);
+        farm.withdraw(stakeAmt);
+
+        assertEq(TokenLike(st).balanceOf(staker), stakeAmt);
     }
 
     // Lowering burn is always allowed (zero is the safe direction; at worst it stalls the burn stream).
