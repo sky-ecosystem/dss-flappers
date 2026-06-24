@@ -386,6 +386,20 @@ contract SBEBeamTest is DssTest {
         assertEq(splitter.hop(),  2 hours);
     }
 
+    function testSetFarmSanityFailed() public {
+        // When the farm is used (burn < WAD), the farmOwner's farm must match the
+        // splitter's farm; otherwise set() would re-rate a farm the splitter doesn't fund.
+        vm.mockCall(
+            address(farmOwner),
+            abi.encodeWithSignature("farm()"),
+            abi.encode(address(0xBAD))
+        );
+
+        vm.expectRevert("SBEBeam/farm-sanity-failed");
+        vm.prank(bud);
+        beam.set(5_000e45, 0.5e18, 1 hours);
+    }
+
     // Lowering burn is always allowed (zero is the safe direction; at worst it stalls the burn stream).
     function testSetBurnCanGoToZero() public {
         vm.prank(bud);
