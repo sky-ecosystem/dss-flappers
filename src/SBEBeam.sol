@@ -169,7 +169,8 @@ contract SBEBeam {
         require(hop <= 5 * 365 days,                 "SBEBeam/hop-unsafe-value");
         require(kbump / hop <= maxRate,              "SBEBeam/rate-above-max");
         require(burn == WAD ||
-                splitter.farm() == farmOwner.farm(), "SBEBeam/farm-sanity-failed");
+                address(farmOwner) != address(0) &&
+                farmOwner.farm() == splitter.farm(), "SBEBeam/farm-sanity-failed");
 
         toc = uint128(block.timestamp);
 

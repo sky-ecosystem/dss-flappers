@@ -404,6 +404,15 @@ contract SBEBeamTest is DssTest {
     }
 
     function testSetFarmSanityFailed() public {
+        vm.prank(pauseProxy);
+        beam.file("farmOwner", address(0));
+
+        vm.expectRevert("SBEBeam/farm-sanity-failed");
+        vm.prank(bud);
+        beam.set(5_000e45, 0.5e18, 1 hours);
+    }
+
+    function testSetFarmSanityFailed2() public {
         // When the farm is used (burn < WAD), the farmOwner's farm must match the
         // splitter's farm; otherwise set() would re-rate a farm the splitter doesn't fund.
         vm.mockCall(
