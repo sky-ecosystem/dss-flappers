@@ -299,9 +299,9 @@ library FlapperInit {
         address              farmOwner,
         SBEBeamConfig memory cfg
     ) internal {
-        address kicker     = dss.chainlog.getAddress("MCD_KICK");
-        address splitter   = dss.chainlog.getAddress("MCD_SPLIT");
-        address farm       = SplitterLike(splitter).farm();
+        address kicker   = dss.chainlog.getAddress("MCD_KICK");
+        address splitter = dss.chainlog.getAddress("MCD_SPLIT");
+        address farm     = SplitterLike(splitter).farm(); // Assuming there will be a farm set when initializing SBEBeam
 
         // Sanity checks
         require(SBEBeamLike(beam).kicker()   == kicker,    "SBEBeam kicker mismatch");
