@@ -335,22 +335,28 @@ contract SBEBeamTest is DssTest {
         assertEq(farm.rewardsDuration(), 5 minutes);
     }
 
-    // hop may be raised freely, but it cannot be set to the halt sentinel (type(uint256).max),
-    // which is reserved for governance; otherwise a bud could halt and lock itself out (good modifier).
-    function testSetHopHaltSentinel() public {
-        vm.expectRevert("SBEBeam/hop-halts-engine");
+    // hop is capped at 5 years: a large enough hop truncates the farm's rewardRate to absolute 0,
+    // a state no further set() can revive (only a governance notifyRewardAmount can).
+    function testSetHopAboveMax() public {
+        vm.expectRevert("SBEBeam/hop-unsafe-value");
         vm.prank(bud);
-        beam.set(5_000e45, 0.5e18, type(uint256).max);
+        beam.set(5_000e45, 0.5e18, 5 * 365 days + 1); // right above cap
     }
 
-    // The throttling-only directions are never blocked: kbump can be lowered arbitrarily
-    // and hop raised arbitrarily, since at worst that stalls the burn stream.
-    function testSetKbumpCanGoArbitrarilyLowAndHopCanGoArbitrarilyHigh() public {
+    function testSetHopAtMax() public {
         vm.prank(bud);
-        beam.set(1e27, 0.5e18, 365 days); // far below the previous kbump (still a RAY multiple), far above the previous hop
+        beam.set(5_000e45, 0.5e18, 5 * 365 days); // at the cap
+        assertEq(splitter.hop(), 5 * 365 days);
+    }
+
+    // The throttling-only directions are not blocked: kbump can be lowered arbitrarily and hop
+    // raised up to the safety cap, since at worst that stalls the burn stream.
+    function testSetKbumpCanGoLowAndHopCanGoHigh() public {
+        vm.prank(bud);
+        beam.set(1e27, 0.5e18, 5 * 365 days); // far below the previous kbump (still a RAY multiple), far above the previous hop
         assertEq(kicker.kbump(),         1e27);
-        assertEq(splitter.hop(),         365 days);
-        assertEq(farm.rewardsDuration(), 365 days);
+        assertEq(splitter.hop(),         5 * 365 days);
+        assertEq(farm.rewardsDuration(), 5 * 365 days);
     }
 
     function testSetAboveMaxBurn() public {

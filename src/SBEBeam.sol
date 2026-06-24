@@ -150,11 +150,14 @@ contract SBEBeam {
     // - It is intended to rewrite the same values, emit the event, and reset the toc count, even if there is no change.
     // - Only the throughput-increasing directions are bounded: kbump is capped at maxKbump, hop is
     //   floored at minHop, and the burn rate (kbump / hop) is capped at maxRate. Lowering kbump or
-    //   raising hop is always allowed; at worst it stalls the burn stream, which governance can revive.
+    //   raising hop is otherwise allowed; at worst it stalls the burn stream, which governance can revive.
     // - burn is capped at WAD (100%); a higher value would make Splitter.kick underflow and halt.
     // - kbump must be a whole multiple of RAY, preserving the Kicker deploy invariant and avoiding kick dust.
-    // - hop must stay below type(uint256).max: that value is the halt sentinel (see the good modifier),
-    //   reserved for governance, so a facilitator cannot use set() to halt and lock itself out of the module.
+    // - hop is additionally capped below 5 years: a large enough hop makes the farm re-rate
+    //   rewardRate = leftover / hop truncate to absolute 0. Once 0, no further set() can revive it
+    //   (leftover = remaining * rewardRate then computes as 0 too) — only a governance
+    //   notifyRewardAmount can. The cap also keeps hop well below type(uint256).max, the halt sentinel
+    //   (see the good modifier), so a facilitator cannot use set() to halt the engine and lock itself out.
     // - Kicker.khump (the flap threshold) is deliberately left out of the set knobs: it is not a value that needs regular
     //   tuning, and changing it is a more structural governance decision better routed through the full governance process.
     function set(uint256 kbump, uint256 burn, uint256 hop) external toll good {
@@ -163,7 +166,7 @@ contract SBEBeam {
         require(kbump % RAY == 0,                    "SBEBeam/kbump-not-multiple-of-RAY");
         require(burn <= WAD,                         "SBEBeam/burn-above-max");
         require(hop >= minHop,                       "SBEBeam/hop-below-min");
-        require(hop < type(uint256).max,             "SBEBeam/hop-halts-engine");
+        require(hop <= 5 * 365 days,                 "SBEBeam/hop-unsafe-value");
         require(kbump / hop <= maxRate,              "SBEBeam/rate-above-max");
         require(burn == WAD ||
                 splitter.farm() == farmOwner.farm(), "SBEBeam/farm-sanity-failed");
