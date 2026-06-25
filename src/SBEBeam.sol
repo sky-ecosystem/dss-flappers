@@ -154,9 +154,8 @@ contract SBEBeam {
     // - burn is capped at WAD (100%); a higher value would make Splitter.kick underflow and halt.
     // - kbump must be a whole multiple of RAY, preserving the Kicker deploy invariant and avoiding kick dust.
     // - hop is additionally capped below 5 years: a large enough hop makes the farm re-rate
-    //   rewardRate = leftover / hop truncate to absolute 0. Once 0, no further set() can revive it
-    //   (leftover = remaining * rewardRate then computes as 0 too) — only a governance
-    //   notifyRewardAmount can. The cap also keeps hop well below type(uint256).max, the halt sentinel
+    //   rewardRate = leftover / hop truncate to 0. Then no further set() can revive those existing funds
+    //   (leftover = remaining * rewardRate). The cap also keeps hop well below type(uint256).max, the halt sentinel
     //   (see the good modifier), so a facilitator cannot use set() to halt the engine and lock itself out.
     // - Kicker.khump (the flap threshold) is deliberately left out of the set knobs: it is not a value that needs regular
     //   tuning, and changing it is a more structural governance decision better routed through the full governance process.
