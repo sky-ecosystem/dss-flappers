@@ -567,7 +567,7 @@ contract SBEBeamTest is DssTest {
             abi.encode(address(0xBAD))
         );
 
-        vm.expectRevert("SBEBeam farm not owned");
+        vm.expectRevert("SBEBeam farm owner mismatch");
         this.initSBEBeamExt(address(beam), address(farmOwner));
     }
 }

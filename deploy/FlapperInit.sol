@@ -306,7 +306,7 @@ library FlapperInit {
         // Sanity checks
         require(SBEBeamLike(beam).kicker()   == kicker,    "SBEBeam kicker mismatch");
         require(SBEBeamLike(beam).splitter() == splitter,  "SBEBeam splitter mismatch");
-        require(FarmLike(farm).owner()       == farmOwner, "SBEBeam farm not owned");
+        require(FarmLike(farm).owner()       == farmOwner, "SBEBeam farm owner mismatch");
 
         SBEBeamLike(beam).file("farmOwner", farmOwner);
         SBEBeamLike(beam).file("maxKbump",  cfg.maxKbump);
