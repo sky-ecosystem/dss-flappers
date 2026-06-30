@@ -230,7 +230,7 @@ contract SBEBeamTest is DssTest {
 
     function testSetSameHopSkipsRewardsDuration() public {
         // hop is left unchanged, so the farm's reward stream must not be re-rated:
-        // neither splitter.file("hop", ...) nor farm.setRewardsDuration(...) should be called.
+        // farm.setRewardsDuration(...) should not be called.
         uint256 hop_ = splitter.hop();
 
         vm.expectCall(address(farm), abi.encodeWithSelector(FarmLike.setRewardsDuration.selector), 0);
