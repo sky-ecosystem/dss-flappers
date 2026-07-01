@@ -144,6 +144,12 @@ library FlapperInit {
     uint256 constant WAD = 10 ** 18;
     uint256 constant RAY = 10 ** 27;
 
+    // Note: Some functions in this file touch state which a live Beam depends on.
+    // They pre-date the Beam and should not be used as-is without considering it.
+    // For example, setFarm does not consider the Beam.
+    // This is in-line with the regular init function methodology, where functions should
+    // be used for initial onboarding, then potentially be updated before a future use.
+
     function initFlapperUniV2(
         DssInstance        memory dss,
         address                   flapper_,
