@@ -275,6 +275,16 @@ contract SBEBeamTest is DssTest {
 
     // --- set() gating ---
 
+    function testSetSplitterNotLive() public {
+        // A caged Splitter (live == 0) cannot execute kicks, so set() must not
+        // retune a dead engine; only governance can revive it.
+        vm.prank(pauseProxy);
+        splitter.cage(0);
+        vm.expectRevert("SBEBeam/splliter-not-live");
+        vm.prank(bud);
+        beam.set(5_000e45, 0.5e18, 1 hours);
+    }
+
     function testSetModuleHalted() public {
         // Halting the burn engine (Splitter.hop == type(uint256).max) also halts the beam,
         // so a facilitator cannot use set() to revive a governance-stopped engine.

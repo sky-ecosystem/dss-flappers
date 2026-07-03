@@ -22,7 +22,8 @@ interface KickerLike {
 }
 
 interface SplitterLike {
-    function hop()  external view returns (uint256);
+    function live() external view returns (uint256);
+    function hop() external view returns (uint256);
     function farm() external view returns (address);
     function file(bytes32, uint256) external;
 }
@@ -77,11 +78,6 @@ contract SBEBeam {
 
     modifier toll {
         require(buds[msg.sender] == 1, "SBEBeam/not-facilitator");
-        _;
-    }
-
-    modifier good {
-        require(splitter.hop() < type(uint256).max, "SBEBeam/module-halted");
         _;
     }
 
@@ -159,7 +155,9 @@ contract SBEBeam {
     //   (see the good modifier), so a facilitator cannot use set() to halt the engine and lock itself out.
     // - Kicker.khump (the flap threshold) is deliberately left out of the set knobs: it is not a value that needs regular
     //   tuning, and changing it is a more structural governance decision better routed through the full governance process.
-    function set(uint256 kbump, uint256 burn, uint256 hop) external toll good {
+    function set(uint256 kbump, uint256 burn, uint256 hop) external toll {
+        require(splitter.live() == 1,                "SBEBeam/splliter-not-live");
+        require(splitter.hop() < type(uint256).max,  "SBEBeam/module-halted");
         require(block.timestamp >= tau + toc,        "SBEBeam/too-early");
         require(kbump <= maxKbump,                   "SBEBeam/kbump-above-max");
         require(kbump % RAY == 0,                    "SBEBeam/kbump-not-multiple-of-RAY");
