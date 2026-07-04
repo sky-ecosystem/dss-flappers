@@ -152,11 +152,11 @@ contract SBEBeam {
     // - hop is additionally capped below 5 years: a large enough hop makes the farm re-rate
     //   rewardRate = leftover / hop truncate to 0. Then no further set() can revive those existing funds
     //   (leftover = remaining * rewardRate). The cap also keeps hop well below type(uint256).max, the halt sentinel
-    //   (see the good modifier), so a facilitator cannot use set() to halt the engine and lock itself out.
+    //   (see the set() require condition), so a facilitator cannot use set() to halt the engine and lock itself out.
     // - Kicker.khump (the flap threshold) is deliberately left out of the set knobs: it is not a value that needs regular
     //   tuning, and changing it is a more structural governance decision better routed through the full governance process.
     function set(uint256 kbump, uint256 burn, uint256 hop) external toll {
-        require(splitter.live() == 1,                "SBEBeam/splliter-not-live");
+        require(splitter.live() == 1,                "SBEBeam/splitter-not-live");
         require(splitter.hop() < type(uint256).max,  "SBEBeam/module-halted");
         require(block.timestamp >= tau + toc,        "SBEBeam/too-early");
         require(kbump <= maxKbump,                   "SBEBeam/kbump-above-max");

@@ -280,7 +280,7 @@ contract SBEBeamTest is DssTest {
         // retune a dead engine; only governance can revive it.
         vm.prank(pauseProxy);
         splitter.cage(0);
-        vm.expectRevert("SBEBeam/splliter-not-live");
+        vm.expectRevert("SBEBeam/splitter-not-live");
         vm.prank(bud);
         beam.set(5_000e45, 0.5e18, 1 hours);
     }

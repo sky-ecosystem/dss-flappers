@@ -81,7 +81,7 @@ Access control:
 * `wards` (`rely`/`deny`) - Governance-level administrators that configure the ranges.
 * `buds` (`kiss`/`diss`) - Facilitators permitted to call `set`.
 
-Halting: `set` is automatically blocked whenever the burn engine itself is stopped, i.e. when `Splitter.hop` is set to `type(uint256).max` (the canonical way governance disables kicks, since `Splitter.kick` then becomes unreachable). This binds the `SBEBeam` halt state to the engine's real halt state — there is no separate flag to keep in sync — and it ensures a facilitator can never use `set` to revive a governance-halted engine. Only governance can bring it back, by re-filing a finite `hop` on the `Splitter`.
+Halting: `set` is automatically blocked whenever the burn engine itself is stopped, i.e. when `Splitter.hop` is set to `type(uint256).max` or `Splitter.live` is set to `0`. This binds the `SBEBeam` halt state to the engine's real halt state — there is no separate flag to keep in sync — and it ensures a facilitator can never use `set` to revive a governance-halted engine. Only governance can bring it back, by re-filing a finite `hop` on the `Splitter`.
 
 Note: `SBEBeam` must be a ward of `Kicker`, `Splitter`, and `FarmOwner` for its `set` call to succeed.
 
