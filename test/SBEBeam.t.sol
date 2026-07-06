@@ -114,8 +114,6 @@ contract SBEBeamTest is DssTest {
             chainlogKey: "MCD_SBE_BEAM"
         }));
         vm.stopPrank();
-
-        assertEq(address(beam.farmOwner()), address(farmOwner));
     }
 
     // --- constructor / admin ---
@@ -160,10 +158,6 @@ contract SBEBeamTest is DssTest {
         vm.prank(pauseProxy);
         beam.diss(usr);
         assertEq(beam.buds(usr), 0);
-    }
-
-    function testFileAddress() public {
-        checkFileAddress(address(beam), "SBEBeam", ["farmOwner"]);
     }
 
     function testFileUint() public {
@@ -397,13 +391,16 @@ contract SBEBeamTest is DssTest {
     }
 
     function testSetMaxBurnWorksWithoutFarmOwner() public {
-        // Unset the farmOwner entirely.
-        vm.prank(pauseProxy);
-        beam.file("farmOwner", address(0));
-        assertEq(address(beam.farmOwner()), address(0));
+        // With burn == WAD the farm's owner is never resolved, so set() must succeed
+        // even if there is no usable farm owner: the `burn < WAD` guard short-circuits
+        // before farm.owner()/setRewardsDuration is ever reached. Force farm.owner()
+        // to revert to prove the max-burn path never touches it.
+        vm.mockCallRevert(
+            address(farm),
+            abi.encodeWithSignature("owner()"),
+            "farm-owner-unavailable"
+        );
 
-        // With burn == WAD the farm is never touched, so set() succeeds even though
-        // farmOwner is unset — the `burn < WAD` guard short-circuits before farmOwner.farm().
         vm.expectCall(address(farm), abi.encodeWithSelector(FarmLike.setRewardsDuration.selector), 0);
         vm.prank(bud);
         beam.set(5_000e45, WAD, 2 hours);
@@ -411,29 +408,6 @@ contract SBEBeamTest is DssTest {
         assertEq(kicker.kbump(),  5_000e45);
         assertEq(splitter.burn(), WAD);
         assertEq(splitter.hop(),  2 hours);
-    }
-
-    function testSetFarmSanityFailed() public {
-        vm.prank(pauseProxy);
-        beam.file("farmOwner", address(0));
-
-        vm.expectRevert("SBEBeam/farm-sanity-failed");
-        vm.prank(bud);
-        beam.set(5_000e45, 0.5e18, 1 hours);
-    }
-
-    function testSetFarmSanityFailed2() public {
-        // When the farm is used (burn < WAD), the farmOwner's farm must match the
-        // splitter's farm; otherwise set() would re-rate a farm the splitter doesn't fund.
-        vm.mockCall(
-            address(farmOwner),
-            abi.encodeWithSignature("farm()"),
-            abi.encode(address(0xBAD))
-        );
-
-        vm.expectRevert("SBEBeam/farm-sanity-failed");
-        vm.prank(bud);
-        beam.set(5_000e45, 0.5e18, 1 hours);
     }
 
     // --- set() should not block farm withdrawals (fuzz) ---

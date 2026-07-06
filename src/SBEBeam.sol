@@ -34,6 +34,7 @@ interface FarmOwnerLike {
 }
 
 interface FarmLike {
+    function owner() external view returns (address);
     function rewardsDuration() external view returns (uint256);
 }
 
@@ -42,7 +43,6 @@ contract SBEBeam {
 
     mapping(address => uint256) public wards;
     mapping(address => uint256) public buds;
-    FarmOwnerLike public farmOwner; // Owner of the Splitter.farm, used to re-rate the farm's rewardsDuration
     uint256       public maxKbump;  // [rad]     Maximum allowed value for Kicker.kbump
     uint256       public minHop;    // [seconds] Minimum allowed value for Splitter.hop (also applied to farm.rewardsDuration)
     uint256       public maxRate;   // [rad/s]   Maximum allowed burn rate (kbump / hop)
@@ -66,7 +66,6 @@ contract SBEBeam {
     event Kiss(address indexed usr);
     event Diss(address indexed usr);
     event File(bytes32 indexed what, uint256 data);
-    event File(bytes32 indexed what, address data);
     event Set(uint256 kbump, uint256 burn, uint256 hop);
 
     // --- modifiers ---
@@ -115,13 +114,6 @@ contract SBEBeam {
         emit Diss(usr);
     }
 
-    function file(bytes32 what, address data) external auth {
-        if (what == "farmOwner") {
-            farmOwner = FarmOwnerLike(data);
-        } else revert("SBEBeam/file-unrecognized-param");
-        emit File(what, data);
-    }
-
     function file(bytes32 what, uint256 data) external auth {
         if (what == "maxKbump") {
             maxKbump = data;
@@ -165,9 +157,6 @@ contract SBEBeam {
         require(hop >= minHop,                       "SBEBeam/hop-below-min");
         require(hop <= 5 * 365 days,                 "SBEBeam/hop-unsafe-value");
         require(kbump / hop <= maxRate,              "SBEBeam/rate-above-max");
-        require(burn == WAD ||
-                address(farmOwner) != address(0) &&
-                farmOwner.farm() == splitter.farm(), "SBEBeam/farm-sanity-failed");
 
         toc = uint128(block.timestamp);
 
@@ -180,8 +169,9 @@ contract SBEBeam {
         // - avoid extending the duration of the current stream if hop did not change, and
         // - indirectly allow fixing a possible desync between splitter and the
         //   farm for whatever reason that could have happened (included a prior burn=WAD).
-        if (burn < WAD && hop != FarmLike(farmOwner.farm()).rewardsDuration()) {
-            farmOwner.setRewardsDuration(hop);
+        FarmLike farm = FarmLike(splitter.farm());
+        if (burn < WAD && hop != farm.rewardsDuration()) {
+            FarmOwnerLike(farm.owner()).setRewardsDuration(hop);
         }
 
         emit Set(kbump, burn, hop);
