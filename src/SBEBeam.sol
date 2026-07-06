@@ -45,7 +45,7 @@ contract SBEBeam {
     mapping(address => uint256) public buds;
     uint256       public maxKbump;  // [rad]     Maximum allowed value for Kicker.kbump
     uint256       public minHop;    // [seconds] Minimum allowed value for Splitter.hop (also applied to farm.rewardsDuration)
-    uint256       public maxRate;   // [rad/s]   Maximum allowed burn rate (kbump / hop)
+    uint256       public maxRate;   // [rad/s]   Maximum allowed surplus throughput (kbump / hop)
     uint64        public tau;       // Cooldown period between set() calls in seconds
     uint128       public toc;       // Last time when set() was called (Unix timestamp)
 
