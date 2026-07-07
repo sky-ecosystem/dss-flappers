@@ -29,7 +29,6 @@ interface SplitterLike {
 }
 
 interface FarmOwnerLike {
-    function farm() external view returns (address);
     function setRewardsDuration(uint256) external;
 }
 
@@ -43,11 +42,11 @@ contract SBEBeam {
 
     mapping(address => uint256) public wards;
     mapping(address => uint256) public buds;
-    uint256       public maxKbump;  // [rad]     Maximum allowed value for Kicker.kbump
-    uint256       public minHop;    // [seconds] Minimum allowed value for Splitter.hop (also applied to farm.rewardsDuration)
-    uint256       public maxRate;   // [rad/s]   Maximum allowed surplus throughput (kbump / hop)
-    uint64        public tau;       // Cooldown period between set() calls in seconds
-    uint128       public toc;       // Last time when set() was called (Unix timestamp)
+    uint256 public maxKbump; // [rad]     Maximum allowed value for Kicker.kbump
+    uint256 public minHop;   // [seconds] Minimum allowed value for Splitter.hop (also applied to farm.rewardsDuration)
+    uint256 public maxRate;  // [rad/s]   Maximum allowed surplus throughput (kbump / hop)
+    uint64  public tau;      // Cooldown period between set() calls in seconds
+    uint128 public toc;      // Last time when set() was called (Unix timestamp)
 
     // --- immutables ---
 
@@ -148,15 +147,15 @@ contract SBEBeam {
     // - Kicker.khump (the flap threshold) is deliberately left out of the set knobs: it is not a value that needs regular
     //   tuning, and changing it is a more structural governance decision better routed through the full governance process.
     function set(uint256 kbump, uint256 burn, uint256 hop) external toll {
-        require(splitter.live() == 1,                "SBEBeam/splitter-not-live");
-        require(splitter.hop() < type(uint256).max,  "SBEBeam/module-halted");
-        require(block.timestamp >= tau + toc,        "SBEBeam/too-early");
-        require(kbump <= maxKbump,                   "SBEBeam/kbump-above-max");
-        require(kbump % RAY == 0,                    "SBEBeam/kbump-not-multiple-of-RAY");
-        require(burn <= WAD,                         "SBEBeam/burn-above-max");
-        require(hop >= minHop,                       "SBEBeam/hop-below-min");
-        require(hop <= 5 * 365 days,                 "SBEBeam/hop-unsafe-value");
-        require(kbump / hop <= maxRate,              "SBEBeam/rate-above-max");
+        require(splitter.live() == 1,               "SBEBeam/splitter-not-live");
+        require(splitter.hop() < type(uint256).max, "SBEBeam/module-halted");
+        require(block.timestamp >= tau + toc,       "SBEBeam/too-early");
+        require(kbump <= maxKbump,                  "SBEBeam/kbump-above-max");
+        require(kbump % RAY == 0,                   "SBEBeam/kbump-not-multiple-of-RAY");
+        require(burn <= WAD,                        "SBEBeam/burn-above-max");
+        require(hop >= minHop,                      "SBEBeam/hop-below-min");
+        require(hop <= 5 * 365 days,                "SBEBeam/hop-unsafe-value");
+        require(kbump / hop <= maxRate,             "SBEBeam/rate-above-max");
 
         toc = uint128(block.timestamp);
 

@@ -314,10 +314,10 @@ library FlapperInit {
         require(SBEBeamLike(beam).splitter() == splitter,  "SBEBeam splitter mismatch");
         require(FarmLike(farm).owner()       == farmOwner, "Farm owner mismatch");
 
-        SBEBeamLike(beam).file("maxKbump",  cfg.maxKbump);
-        SBEBeamLike(beam).file("minHop",    cfg.minHop);
-        SBEBeamLike(beam).file("maxRate",   cfg.maxRate);
-        SBEBeamLike(beam).file("tau",       cfg.tau);
+        SBEBeamLike(beam).file("maxKbump", cfg.maxKbump);
+        SBEBeamLike(beam).file("minHop",   cfg.minHop);
+        SBEBeamLike(beam).file("maxRate",  cfg.maxRate);
+        SBEBeamLike(beam).file("tau",      cfg.tau);
 
         KickerLike(kicker).rely(beam);
         SplitterLike(splitter).rely(beam);
