@@ -66,7 +66,6 @@ A bounded, rate-limited parameter setter for the Smart Burn Engine. It allows a 
 The bounds only constrain the throughput-increasing directions, so a facilitator can never accelerate the burn beyond what governance has sanctioned. The opposite moves — lowering `kbump` or raising `hop` — are always permitted: at worst they stall the burn stream (a denial of service), which governance can revive on its own. This asymmetry is what makes the module safe to drive with an operator. `burn` is additionally capped at `WAD` (100%), since the `Splitter` does not validate it and a value above `WAD` would make `Splitter.kick` underflow and halt.
 
 Configurable Parameters:
-* `farmOwner` - The `FarmOwner` used to re-rate the farm's `rewardsDuration`. Fileable by governance so it can be repointed if the farm's ownership wrapper is ever migrated.
 * `maxKbump` - Maximum allowed value for `Kicker.kbump`. There is no minimum; `kbump` may be lowered freely, but it must be a whole multiple of `RAY` (matching the `Kicker` deploy invariant and avoiding `kick` rounding dust).
 * `minHop` - Minimum allowed value for `Splitter.hop`. `hop` may be raised freely up to a hard safety cap of just under 5 years. A large enough `hop` makes the farm re-rate `rewardRate = leftover / hop` truncate to `0`; then no further `set` can revive those existing funds (`leftover = remaining * rewardRate`) — only governance could potentially revert that. The cap also keeps `hop` well below `type(uint256).max` — the halt sentinel reserved for governance (see Halting below) — so a facilitator cannot use `set` to halt the engine and lock itself out.
 * `maxRate` - Maximum allowed burn rate, measured as `kbump / hop` (the total surplus throughput). This caps the combined throughput even when `kbump` and `hop` are each individually within their own bound.
@@ -81,7 +80,7 @@ Access control:
 * `wards` (`rely`/`deny`) - Governance-level administrators that configure the ranges.
 * `buds` (`kiss`/`diss`) - Facilitators permitted to call `set`.
 
-Halting: `set` is automatically blocked whenever the burn engine itself is stopped, i.e. when `Splitter.hop` is set to `type(uint256).max` or `Splitter.live` is set to `0`. This binds the `SBEBeam` halt state to the engine's real halt state — there is no separate flag to keep in sync — and it ensures a facilitator can never use `set` to revive a governance-halted engine. Only governance can bring it back, by re-filing a finite `hop` on the `Splitter`.
+Halting: `set` is automatically blocked whenever the burn engine itself is stopped, i.e. when `Splitter.hop` is set to `type(uint256).max` or `Splitter.live` is set to `0`. This binds the `SBEBeam` halt state to the engine's real halt state — there is no separate flag to keep in sync — and it ensures a facilitator can never use `set` to revive a governance-halted engine.
 
 Note: `SBEBeam` must be a ward of `Kicker`, `Splitter`, and `FarmOwner` for its `set` call to succeed.
 
