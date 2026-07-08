@@ -29,6 +29,7 @@ interface SplitterLike {
 }
 
 interface FarmOwnerLike {
+    function farm() external view returns (address);
     function setRewardsDuration(uint256) external;
 }
 
@@ -168,9 +169,14 @@ contract SBEBeam {
         // - avoid extending the duration of the current stream if hop did not change, and
         // - indirectly allow fixing a possible desync between splitter and the
         //   farm for whatever reason that could have happened (included a prior burn=WAD).
-        FarmLike farm = FarmLike(splitter.farm());
-        if (burn < WAD && hop != farm.rewardsDuration()) {
-            FarmOwnerLike(farm.owner()).setRewardsDuration(hop);
+        if (burn < WAD) {
+            address farm = splitter.farm();
+            require(farm != address(0), "SBEBeam/farm-not-set");
+            if (FarmLike(farm).rewardsDuration() != hop) {
+                FarmOwnerLike farmOwner = FarmOwnerLike(FarmLike(farm).owner());
+                require(farmOwner.farm() == farm, "SBEBeam/farm-mismatch");
+                farmOwner.setRewardsDuration(hop);
+            }
         }
 
         emit Set(kbump, burn, hop);

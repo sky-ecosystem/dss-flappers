@@ -267,6 +267,30 @@ contract SBEBeamTest is DssTest {
         assertEq(farm.rewardsDuration(), hop_); // desync fixed
     }
 
+    function testSetFarmNotSet() public {
+        // With burn < WAD the farm must be resolvable. If the splitter has no farm
+        // set, set() reverts rather than dereferencing address(0) to re-rate.
+        vm.prank(pauseProxy);
+        splitter.file("farm", address(0));
+
+        vm.expectRevert("SBEBeam/farm-not-set");
+        vm.prank(bud);
+        beam.set(5_000e45, 0.5e18, 2 hours);
+    }
+
+    function testSetFarmMismatch() public {
+        // The resolved owner must actually be wired to the splitter's farm. If farm.owner()
+        // points at a FarmOwner wired to a different farm, set() refuses to forward
+        // setRewardsDuration to the wrong target.
+        FarmOwner wrongOwner = new FarmOwner(address(0xBEEF));
+        vm.mockCall(address(farm), abi.encodeWithSignature("owner()"), abi.encode(address(wrongOwner)));
+
+        // hop differs from farm.rewardsDuration() (1 hours) so the inner re-rate branch is entered.
+        vm.expectRevert("SBEBeam/farm-mismatch");
+        vm.prank(bud);
+        beam.set(5_000e45, 0.5e18, 2 hours);
+    }
+
     // --- set() gating ---
 
     function testSetSplitterNotLive() public {
