@@ -137,7 +137,7 @@ contract SBEBeam {
     // Notes:
     // - It is intended to rewrite the same values, emit the event, and reset the toc count, even if there is no change.
     // - Only the throughput-increasing directions are bounded: kbump is capped at maxKbump, hop is
-    //   floored at minHop, and the burn rate (kbump / hop) is capped at maxRate. Lowering kbump or
+    //   floored at minHop, and the surplus throughput (kbump / hop) is capped at maxRate. Lowering kbump or
     //   raising hop is otherwise allowed; at worst it stalls the burn stream, which governance can revive.
     // - burn is capped at WAD (100%); a higher value would make Splitter.kick underflow and halt.
     // - kbump must be a whole multiple of RAY, preserving the Kicker deploy invariant and avoiding kick dust.
