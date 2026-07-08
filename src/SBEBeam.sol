@@ -87,6 +87,7 @@ contract SBEBeam {
         splitter = SplitterLike(kicker.splitter());
 
         minHop = 5 minutes;
+        emit File("minHop", 5 minutes);
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);

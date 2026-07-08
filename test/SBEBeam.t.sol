@@ -120,6 +120,7 @@ contract SBEBeamTest is DssTest {
 
     function testConstructor() public {
         vm.expectEmit();
+        emit File("minHop", 5 minutes);
         emit Rely(address(this));
         SBEBeam b = new SBEBeam(address(kicker));
 
