@@ -34,6 +34,7 @@ interface FarmOwnerLike {
 }
 
 interface FarmLike {
+    function owner() external view returns (address);
     function rewardsDuration() external view returns (uint256);
 }
 
@@ -42,12 +43,11 @@ contract SBEBeam {
 
     mapping(address => uint256) public wards;
     mapping(address => uint256) public buds;
-    FarmOwnerLike public farmOwner; // Owner of the Splitter.farm, used to re-rate the farm's rewardsDuration
-    uint256       public maxKbump;  // [rad]     Maximum allowed value for Kicker.kbump
-    uint256       public minHop;    // [seconds] Minimum allowed value for Splitter.hop (also applied to farm.rewardsDuration)
-    uint256       public maxRate;   // [rad/s]   Maximum allowed burn rate (kbump / hop)
-    uint64        public tau;       // Cooldown period between set() calls in seconds
-    uint128       public toc;       // Last time when set() was called (Unix timestamp)
+    uint256 public maxKbump; // [rad]     Maximum allowed value for Kicker.kbump
+    uint256 public minHop;   // [seconds] Minimum allowed value for Splitter.hop (also applied to farm.rewardsDuration)
+    uint256 public maxRate;  // [rad/s]   Maximum allowed surplus throughput (kbump / hop)
+    uint64  public tau;      // Cooldown period between set() calls in seconds
+    uint128 public toc;      // Last time when set() was called (Unix timestamp)
 
     // --- immutables ---
 
@@ -66,7 +66,6 @@ contract SBEBeam {
     event Kiss(address indexed usr);
     event Diss(address indexed usr);
     event File(bytes32 indexed what, uint256 data);
-    event File(bytes32 indexed what, address data);
     event Set(uint256 kbump, uint256 burn, uint256 hop);
 
     // --- modifiers ---
@@ -88,6 +87,7 @@ contract SBEBeam {
         splitter = SplitterLike(kicker.splitter());
 
         minHop = 5 minutes;
+        emit File("minHop", 5 minutes);
 
         wards[msg.sender] = 1;
         emit Rely(msg.sender);
@@ -115,13 +115,6 @@ contract SBEBeam {
         emit Diss(usr);
     }
 
-    function file(bytes32 what, address data) external auth {
-        if (what == "farmOwner") {
-            farmOwner = FarmOwnerLike(data);
-        } else revert("SBEBeam/file-unrecognized-param");
-        emit File(what, data);
-    }
-
     function file(bytes32 what, uint256 data) external auth {
         if (what == "maxKbump") {
             maxKbump = data;
@@ -145,7 +138,7 @@ contract SBEBeam {
     // Notes:
     // - It is intended to rewrite the same values, emit the event, and reset the toc count, even if there is no change.
     // - Only the throughput-increasing directions are bounded: kbump is capped at maxKbump, hop is
-    //   floored at minHop, and the burn rate (kbump / hop) is capped at maxRate. Lowering kbump or
+    //   floored at minHop, and the surplus throughput (kbump / hop) is capped at maxRate. Lowering kbump or
     //   raising hop is otherwise allowed; at worst it stalls the burn stream, which governance can revive.
     // - burn is capped at WAD (100%); a higher value would make Splitter.kick underflow and halt.
     // - kbump must be a whole multiple of RAY, preserving the Kicker deploy invariant and avoiding kick dust.
@@ -156,18 +149,15 @@ contract SBEBeam {
     // - Kicker.khump (the flap threshold) is deliberately left out of the set knobs: it is not a value that needs regular
     //   tuning, and changing it is a more structural governance decision better routed through the full governance process.
     function set(uint256 kbump, uint256 burn, uint256 hop) external toll {
-        require(splitter.live() == 1,                "SBEBeam/splitter-not-live");
-        require(splitter.hop() < type(uint256).max,  "SBEBeam/module-halted");
-        require(block.timestamp >= tau + toc,        "SBEBeam/too-early");
-        require(kbump <= maxKbump,                   "SBEBeam/kbump-above-max");
-        require(kbump % RAY == 0,                    "SBEBeam/kbump-not-multiple-of-RAY");
-        require(burn <= WAD,                         "SBEBeam/burn-above-max");
-        require(hop >= minHop,                       "SBEBeam/hop-below-min");
-        require(hop <= 5 * 365 days,                 "SBEBeam/hop-unsafe-value");
-        require(kbump / hop <= maxRate,              "SBEBeam/rate-above-max");
-        require(burn == WAD ||
-                address(farmOwner) != address(0) &&
-                farmOwner.farm() == splitter.farm(), "SBEBeam/farm-sanity-failed");
+        require(splitter.live() == 1,               "SBEBeam/splitter-not-live");
+        require(splitter.hop() < type(uint256).max, "SBEBeam/module-halted");
+        require(block.timestamp >= tau + toc,       "SBEBeam/too-early");
+        require(kbump <= maxKbump,                  "SBEBeam/kbump-above-max");
+        require(kbump % RAY == 0,                   "SBEBeam/kbump-not-multiple-of-RAY");
+        require(burn <= WAD,                        "SBEBeam/burn-above-max");
+        require(hop >= minHop,                      "SBEBeam/hop-below-min");
+        require(hop <= 5 * 365 days,                "SBEBeam/hop-unsafe-value");
+        require(kbump / hop <= maxRate,             "SBEBeam/rate-above-max");
 
         toc = uint128(block.timestamp);
 
@@ -180,8 +170,14 @@ contract SBEBeam {
         // - avoid extending the duration of the current stream if hop did not change, and
         // - indirectly allow fixing a possible desync between splitter and the
         //   farm for whatever reason that could have happened (included a prior burn=WAD).
-        if (burn < WAD && hop != FarmLike(farmOwner.farm()).rewardsDuration()) {
-            farmOwner.setRewardsDuration(hop);
+        if (burn < WAD) {
+            address farm = splitter.farm();
+            require(farm != address(0), "SBEBeam/farm-not-set");
+            if (FarmLike(farm).rewardsDuration() != hop) {
+                FarmOwnerLike farmOwner = FarmOwnerLike(FarmLike(farm).owner());
+                require(farmOwner.farm() == farm, "SBEBeam/farm-mismatch");
+                farmOwner.setRewardsDuration(hop);
+            }
         }
 
         emit Set(kbump, burn, hop);
