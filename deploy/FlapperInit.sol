@@ -59,23 +59,41 @@ interface SplitterLike {
     function vat() external view returns (address);
     function usdsJoin() external view returns (address);
     function hop() external view returns (uint256);
+    function farm() external view returns (address);
     function rely(address) external;
     function file(bytes32, uint256) external;
     function file(bytes32, address) external;
 }
 
 interface FarmLike {
+    function owner() external view returns (address);
     function rewardsToken() external view returns (address);
     function setRewardsDistribution(address) external;
     function setRewardsDuration(uint256) external;
+    function nominateNewOwner(address) external;
+}
+
+interface FarmOwnerLike {
+    function farm() external view returns (address);
+    function rely(address) external;
+    function acceptOwnership() external;
 }
 
 interface KickerLike {
     function vat() external view returns (address);
     function vow() external view returns (address);
     function splitter() external view returns (address);
+    function rely(address) external;
     function file(bytes32, uint256) external;
     function file(bytes32, int256) external;
+}
+
+interface SBEBeamLike {
+    function kicker() external view returns (address);
+    function splitter() external view returns (address);
+    function kiss(address) external;
+    function file(bytes32, uint256) external;
+    function file(bytes32, address) external;
 }
 
 struct FlapperUniV2Config {
@@ -113,9 +131,24 @@ struct KickerConfig {
     bytes32 chainlogKey;
 }
 
+struct SBEBeamConfig {
+    uint256   maxKbump;
+    uint256   minHop;
+    uint256   maxRate;
+    uint256   tau;
+    address[] buds;
+    bytes32   chainlogKey;
+}
+
 library FlapperInit {
     uint256 constant WAD = 10 ** 18;
     uint256 constant RAY = 10 ** 27;
+
+    // Note: Some functions in this file touch state which a live Beam depends on.
+    // They pre-date the Beam and should not be used as-is without considering it.
+    // For example, setFarm does not consider the Beam.
+    // This is in-line with the regular init function methodology, where functions should
+    // be used for initial onboarding, then potentially be updated before a future use.
 
     function initFlapperUniV2(
         DssInstance        memory dss,
@@ -246,5 +279,54 @@ library FlapperInit {
         SplitterLike(splitter).rely(kicker);
 
         dss.chainlog.setAddress(cfg.chainlogKey, kicker);
+    }
+
+    // Transfers ownership of the splitter's current farm to the FarmOwner so
+    // every `onlyOwner` method is gated behind its wards going forward.
+    function initFarmOwner(
+        DssInstance memory dss,
+        address            farmOwner,
+        bytes32            chainlogKey
+    ) internal {
+        address splitter = dss.chainlog.getAddress("MCD_SPLIT");
+        address farm     = SplitterLike(splitter).farm();
+
+        require(FarmOwnerLike(farmOwner).farm() == farm, "FarmOwner farm mismatch");
+
+        FarmLike(farm).nominateNewOwner(farmOwner);
+        FarmOwnerLike(farmOwner).acceptOwnership();
+
+        dss.chainlog.setAddress(chainlogKey, farmOwner);
+    }
+
+    function initSBEBeam(
+        DssInstance   memory dss,
+        address              beam,
+        address              farmOwner,
+        SBEBeamConfig memory cfg
+    ) internal {
+        address kicker   = dss.chainlog.getAddress("MCD_KICK");
+        address splitter = dss.chainlog.getAddress("MCD_SPLIT");
+        address farm     = SplitterLike(splitter).farm(); // Assuming there will be a farm set when initializing SBEBeam
+
+        // Sanity checks
+        require(SBEBeamLike(beam).kicker()   == kicker,    "SBEBeam kicker mismatch");
+        require(SBEBeamLike(beam).splitter() == splitter,  "SBEBeam splitter mismatch");
+        require(FarmLike(farm).owner()       == farmOwner, "Farm owner mismatch");
+
+        SBEBeamLike(beam).file("maxKbump", cfg.maxKbump);
+        SBEBeamLike(beam).file("minHop",   cfg.minHop);
+        SBEBeamLike(beam).file("maxRate",  cfg.maxRate);
+        SBEBeamLike(beam).file("tau",      cfg.tau);
+
+        KickerLike(kicker).rely(beam);
+        SplitterLike(splitter).rely(beam);
+        FarmOwnerLike(farmOwner).rely(beam);
+
+        for (uint256 i; i < cfg.buds.length; i ++) {
+            SBEBeamLike(beam).kiss(cfg.buds[i]);
+        }
+
+        dss.chainlog.setAddress(cfg.chainlogKey, beam);
     }
 }

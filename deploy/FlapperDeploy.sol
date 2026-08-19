@@ -27,6 +27,8 @@ import { SplitterMom } from "src/SplitterMom.sol";
 import { OracleWrapper } from "src/OracleWrapper.sol";
 import { Splitter } from "src/Splitter.sol";
 import { Kicker } from "src/Kicker.sol";
+import { FarmOwner } from "src/FarmOwner.sol";
+import { SBEBeam } from "src/SBEBeam.sol";
 
 library FlapperDeploy {
 
@@ -84,5 +86,27 @@ library FlapperDeploy {
                                 dss.chainlog.getAddress("MCD_SPLIT")));
 
         ScriptTools.switchOwner(kicker, deployer, owner);
+    }
+
+    function deployFarmOwner(
+        address deployer,
+        address owner
+    ) internal returns (address farmOwner) {
+        DssInstance memory dss = MCD.loadFromChainlog(LOG);
+
+        farmOwner = address(new FarmOwner(address(Splitter(dss.chainlog.getAddress("MCD_SPLIT")).farm())));
+
+        ScriptTools.switchOwner(farmOwner, deployer, owner);
+    }
+
+    function deploySBEBeam(
+        address deployer,
+        address owner
+    ) internal returns (address beam) {
+        DssInstance memory dss = MCD.loadFromChainlog(LOG);
+
+        beam = address(new SBEBeam(dss.chainlog.getAddress("MCD_KICK")));
+
+        ScriptTools.switchOwner(beam, deployer, owner);
     }
 }
