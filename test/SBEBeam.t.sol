@@ -71,6 +71,7 @@ contract SBEBeamTest is DssTest {
         splitter   = Splitter(dss.chainlog.getAddress("MCD_SPLIT"));
         kicker     = Kicker(dss.chainlog.getAddress("MCD_KICK"));
         farm       = FarmLike(address(splitter.farm()));
+        farmOwner  = FarmOwner(farm.owner());
 
         // Seed values in-range for the ranges configured below and align the
         // farm's rewardsDuration with splitter.hop. Do this while pauseProxy
@@ -79,21 +80,8 @@ contract SBEBeamTest is DssTest {
         kicker.file("kbump", uint256(5_000e45));
         splitter.file("burn", 0.5e18);
         splitter.file("hop",  1 hours);
-        farm.setRewardsDuration(1 hours);
+        farmOwner.setRewardsDuration(1 hours);
         vm.stopPrank();
-
-        // Deploy the FarmOwner and transfer farm ownership to it.
-        farmOwner = FarmOwner(FlapperDeploy.deployFarmOwner({
-            deployer: address(this),
-            owner:    pauseProxy
-        }));
-
-        vm.startPrank(pauseProxy);
-        FlapperInit.initFarmOwner(dss, address(farmOwner), "REWARDS_LSSKY_SKY_OWNER");
-        vm.stopPrank();
-
-        assertEq(farm.owner(), address(farmOwner));
-        assertEq(dss.chainlog.getAddress("REWARDS_LSSKY_SKY_OWNER"), address(farmOwner));
 
         // Deploy the SBEBeam
         beam = SBEBeam(FlapperDeploy.deploySBEBeam({
