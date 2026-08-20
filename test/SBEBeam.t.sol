@@ -74,8 +74,7 @@ contract SBEBeamTest is DssTest {
         farmOwner  = FarmOwner(farm.owner());
 
         // Seed values in-range for the ranges configured below and align the
-        // farm's rewardsDuration with splitter.hop. Do this while pauseProxy
-        // still owns the farm (before initFarmOwner transfers it).
+        // farm's rewardsDuration with splitter.hop.
         vm.startPrank(pauseProxy);
         kicker.file("kbump", uint256(5_000e45));
         splitter.file("burn", 0.5e18);
