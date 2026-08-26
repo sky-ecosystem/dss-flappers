@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.21;
 
 contract Auxiliar {
     function sqrt(uint256 y) external pure returns (uint256 z) {

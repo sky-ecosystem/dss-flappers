@@ -1,3 +1,9 @@
-PATH := ~/.solc-select/artifacts/solc-0.8.16:~/.solc-select/artifacts/solc-0.5.12:~/.solc-select/artifacts/solc-0.5.16:~/.solc-select/artifacts/solc-0.4.18:~/.solc-select/artifacts:$(PATH)
+PATH := ~/.solc-select/artifacts/solc-0.8.21::~/.solc-select/artifacts/solc-0.5.16:~/.solc-select/artifacts/solc-0.5.12:~/.solc-select/artifacts:$(PATH)
 certora-flapper-univ2           :; PATH=${PATH} certoraRun certora/FlapperUniV2.conf$(if $(rule), --rule $(rule),) --disable_auto_cache_key_gen
 certora-flapper-univ2-swap-only :; PATH=${PATH} certoraRun certora/FlapperUniV2SwapOnly.conf$(if $(rule), --rule $(rule),) --cache none
+certora-splitter                :; PATH=${PATH} certoraRun certora/Splitter.conf$(if $(rule), --rule $(rule),) --cache none
+certora-splitter-mom            :; PATH=${PATH} certoraRun certora/SplitterMom.conf$(if $(rule), --rule $(rule),) --cache none
+certora-kicker                  :; PATH=${PATH} certoraRun certora/Kicker.conf$(if $(rule), --rule $(rule),) --cache none
+certora-oracle-wrapper          :; PATH=${PATH} certoraRun certora/OracleWrapper.conf$(if $(rule), --rule $(rule),) --cache none
+certora-farm-owner              :; PATH=${PATH} certoraRun certora/FarmOwner.conf$(if $(rule), --rule $(rule),) --cache none
+certora-sbe-beam                :; PATH=${PATH} certoraRun certora/SBEBeam.conf$(if $(rule), --rule $(rule),) --cache none

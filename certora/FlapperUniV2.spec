@@ -1,47 +1,48 @@
 // FlapperUniV2.spec
 
-using Vat as vat;
-using DaiJoin as daiJoin;
-using Dai as dai;
-using DSToken as mkr;
+using Usds as usds;
+using Sky as sky;
 using SpotterMock as spotter;
 using PipMock as pip;
 using UniswapV2Pair as pair;
-using Auxiliar as aux;
 
 methods {
     function wards(address) external returns (uint256) envfree;
-    function live() external returns (uint256) envfree;
     function pip() external returns (address) envfree;
-    function hop() external returns (uint256) envfree;
-    function zzz() external returns (uint256) envfree;
-    function want() external returns (uint256) envfree => ALWAYS(980000000000000000); // 0.98 * 10^18;
-    function pip() external returns (address) envfree;
-    function vat() external returns (address) envfree;
-    function daiJoin() external returns (address) envfree;
-    function spotter() external returns (address) envfree;
-    function dai() external returns (address) envfree;
-    function gem() external returns (address) envfree;
+    function want() external returns (uint256) envfree;
     function receiver() external returns (address) envfree;
-    function pair() external returns (address) envfree;
-    function daiFirst() external returns (bool) envfree;
-    function vat.can(address, address) external returns (uint256) envfree;
-    function vat.dai(address) external returns (uint256) envfree;
-    function dai.balanceOf(address) external returns (uint256) envfree;
-    function mkr.balanceOf(address) external returns (uint256) envfree;
+    function usdsFirst() external returns (bool) envfree;
+    function usds.balanceOf(address) external returns (uint256) envfree;
+    function usds.totalSupply() external returns (uint256) envfree;
+    function sky.balanceOf(address) external returns (uint256) envfree;
+    function sky.totalSupply() external returns (uint256) envfree;
     function pip.read() external returns (uint256) envfree;
-    function spotter.par() external returns (uint256) envfree => ALWAYS(1000000000000000000000000000); // 10^27
+    function spotter.par() external returns (uint256) envfree;
     function pair.balanceOf(address) external returns (uint256) envfree;
     function pair.getReserves() external returns (uint112, uint112, uint32) envfree;
     function pair.totalSupply() external returns (uint256) envfree;
     function pair.unlocked() external returns (uint256) envfree;
-    function _.uniswapV2Call(address , uint , uint , bytes) external => NONDET;
-    function UniswapV2Pair.sync() external => NONDET;
-    function UniswapV2Pair.MINIMUM_LIQUIDITY() external returns (uint256) envfree;
-    function aux.sqrt(uint256) external returns (uint256) envfree;
+    function pair.MINIMUM_LIQUIDITY() external returns (uint256) envfree;
+    function _.uniswapV2Call(address, uint256, uint256, bytes) external => NONDET;
+    // Babylonian.sqrt is a fixed amount (7) of Newton iterations. It is replaced here by its
+    // specification, the floor of the square root, which keeps all the arithmetic of
+    // `_getUsdsToSell` (and therefore its overflow behaviour) intact.
+    function Babylonian.sqrt(uint256 x) internal returns (uint256) => sqrtSummary(x);
 }
 
-definition WAD() returns mathint = 10^18;
+persistent ghost bool sqrtCalled;
+
+persistent ghost sqrtGhost(mathint) returns mathint {
+    axiom forall mathint x. x >= 0 => sqrtGhost(x) >= 0                &&
+                                     sqrtGhost(x) * sqrtGhost(x) <= x &&
+                                     (sqrtGhost(x) + 1) * (sqrtGhost(x) + 1) > x;
+}
+
+function sqrtSummary(uint256 x) returns uint256 {
+    sqrtCalled = true;
+    return require_uint256(sqrtGhost(to_mathint(x))); // sqrt(uint256) always fits in uint256
+}
+
 definition RAY() returns mathint = 10^27;
 definition maxuint112() returns mathint = 2^112 - 1;
 
@@ -50,31 +51,21 @@ rule storageAffected(method f) {
     env e;
 
     address anyAddr;
-    bytes32 anyBytes32;
 
     mathint wardsBefore = wards(anyAddr);
-    mathint liveBefore = live();
     address pipBefore = pip();
-    mathint hopBefore = hop();
-    mathint zzzBefore = zzz();
     mathint wantBefore = want();
 
     calldataarg args;
     f(e, args);
 
     mathint wardsAfter = wards(anyAddr);
-    mathint liveAfter = live();
     address pipAfter = pip();
-    mathint hopAfter = hop();
-    mathint zzzAfter = zzz();
     mathint wantAfter = want();
 
-    assert wardsAfter != wardsBefore => f.selector == sig:rely(address).selector || f.selector == sig:deny(address).selector, "wards[x] changed in an unexpected function";
-    assert liveAfter != liveBefore => f.selector == sig:cage(uint256).selector, "live changed in an unexpected function";
-    assert pipAfter != pipBefore => f.selector == sig:file(bytes32,address).selector, "pip changed in an unexpected function";
-    assert hopAfter != hopBefore => f.selector == sig:file(bytes32,uint256).selector, "hop changed in an unexpected function";
-    assert zzzAfter != zzzBefore => f.selector == sig:kick(uint256,uint256).selector, "zzz changed in an unexpected function";
-    assert wantAfter != wantBefore => f.selector == sig:file(bytes32,uint256).selector, "want changed in an unexpected function";
+    assert wardsAfter != wardsBefore => f.selector == sig:rely(address).selector || f.selector == sig:deny(address).selector;
+    assert pipAfter != pipBefore => f.selector == sig:file(bytes32,address).selector;
+    assert wantAfter != wantBefore => f.selector == sig:file(bytes32,uint256).selector;
 }
 
 // Verify correct storage changes for non reverting rely
@@ -91,8 +82,8 @@ rule rely(address usr) {
     mathint wardsUsrAfter = wards(usr);
     mathint wardsOtherAfter = wards(other);
 
-    assert wardsUsrAfter == 1, "rely did not set the wards";
-    assert wardsOtherAfter == wardsOtherBefore, "rely did not keep unchanged the rest of wards[x]";
+    assert wardsUsrAfter == 1;
+    assert wardsOtherAfter == wardsOtherBefore;
 }
 
 // Verify revert rules on rely
@@ -106,7 +97,7 @@ rule rely_revert(address usr) {
     bool revert1 = e.msg.value > 0;
     bool revert2 = wardsSender != 1;
 
-    assert lastReverted <=> revert1 || revert2, "Revert rules failed";
+    assert lastReverted <=> revert1 || revert2;
 }
 
 // Verify correct storage changes for non reverting deny
@@ -123,8 +114,8 @@ rule deny(address usr) {
     mathint wardsUsrAfter = wards(usr);
     mathint wardsOtherAfter = wards(other);
 
-    assert wardsUsrAfter == 0, "deny did not set the wards";
-    assert wardsOtherAfter == wardsOtherBefore, "deny did not keep unchanged the rest of wards[x]";
+    assert wardsUsrAfter == 0;
+    assert wardsOtherAfter == wardsOtherBefore;
 }
 
 // Verify revert rules on deny
@@ -138,25 +129,18 @@ rule deny_revert(address usr) {
     bool revert1 = e.msg.value > 0;
     bool revert2 = wardsSender != 1;
 
-    assert lastReverted <=> revert1 || revert2, "Revert rules failed";
+    assert lastReverted <=> revert1 || revert2;
 }
 
 // Verify correct storage changes for non reverting file
 rule file_uint256(bytes32 what, uint256 data) {
     env e;
 
-    uint256 hopBefore = hop();
-    uint256 wantBefore = want();
-
     file(e, what, data);
 
-    uint256 hopAfter = hop();
-    uint256 wantAfter = want();
+    mathint wantAfter = want();
 
-    assert what == to_bytes32(0x686f700000000000000000000000000000000000000000000000000000000000) => hopAfter == data, "file did not set hop";
-    assert what != to_bytes32(0x686f700000000000000000000000000000000000000000000000000000000000) => hopAfter == hopBefore, "file did keep unchanged hop";
-    assert what == to_bytes32(0x77616e7400000000000000000000000000000000000000000000000000000000) => wantAfter == data, "file did not set want";
-    assert what != to_bytes32(0x77616e7400000000000000000000000000000000000000000000000000000000) => wantAfter == wantBefore, "file did keep unchanged want";
+    assert wantAfter == data;
 }
 
 // Verify revert rules on file
@@ -169,9 +153,9 @@ rule file_uint256_revert(bytes32 what, uint256 data) {
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = wardsSender != 1;
-    bool revert3 = what != to_bytes32(0x686f700000000000000000000000000000000000000000000000000000000000) && what != to_bytes32(0x77616e7400000000000000000000000000000000000000000000000000000000);
+    bool revert3 = what != to_bytes32(0x77616e7400000000000000000000000000000000000000000000000000000000); // "want"
 
-    assert lastReverted <=> revert1 || revert2 || revert3, "Revert rules failed";
+    assert lastReverted <=> revert1 || revert2 || revert3;
 }
 
 // Verify correct storage changes for non reverting file
@@ -182,7 +166,7 @@ rule file_address(bytes32 what, address data) {
 
     address pipAfter = pip();
 
-    assert pipAfter == data, "file did not set pip";
+    assert pipAfter == data;
 }
 
 // Verify revert rules on file
@@ -195,141 +179,152 @@ rule file_address_revert(bytes32 what, address data) {
 
     bool revert1 = e.msg.value > 0;
     bool revert2 = wardsSender != 1;
-    bool revert3 = what != to_bytes32(0x7069700000000000000000000000000000000000000000000000000000000000);
+    bool revert3 = what != to_bytes32(0x7069700000000000000000000000000000000000000000000000000000000000); // "pip"
 
-    assert lastReverted <=> revert1 || revert2 || revert3, "Revert rules failed";
+    assert lastReverted <=> revert1 || revert2 || revert3;
 }
 
-definition getTotalDai(mathint wlot, mathint reserveDai) returns mathint = wlot * (997 * wlot + 1997 * reserveDai) / (1000 * reserveDai);
-definition getAmountOut(mathint amtIn, mathint reserveIn, mathint reserveOut) returns mathint = amtIn * 997 * reserveOut / (reserveIn * 1000 + amtIn * 997);
-definition isAprox(mathint value1, mathint value2, mathint tolerance) returns bool = value1 >= value2 ? value1 - value2 <= tolerance : value2 - value1 <= tolerance;
+definition getUsdsToSell(mathint lot, mathint reserveUsds) returns mathint =
+    (sqrtGhost(reserveUsds * (lot * 3988000 + reserveUsds * 3988009)) - reserveUsds * 1997) / 1994;
+definition getAmountOut(mathint amtIn, mathint reserveIn, mathint reserveOut) returns mathint =
+    amtIn * 997 * reserveOut / (reserveIn * 1000 + amtIn * 997);
+definition mathMin(mathint x, mathint y) returns mathint = x < y ? x : y;
+definition getLiquidity(mathint amt0, mathint amt1, mathint reserve0, mathint reserve1, mathint totalSupply) returns mathint =
+    mathMin(amt0 * totalSupply / reserve0, amt1 * totalSupply / reserve1);
 
-// Verify correct storage changes for non reverting kick
-rule kick(uint256 lot, uint256 a) {
+// Verify correct balance changes for non reverting exec
+rule exec(uint256 lot) {
     env e;
 
-    require e.msg.sender != daiJoin;
-    require daiFirst();
+    require usdsFirst(); // The `!usdsFirst` case is symmetric (usds is linked as token0 of the pair)
+    require !sqrtCalled;
 
-    require lot > 0;
-
-    mathint want = want();
-    require want == 980000000000000000;
     address receiver = receiver();
 
-    mathint vatDaiSenderBefore = vat.dai(e.msg.sender);
-    mathint pairReservesDaiBefore; mathint pairReservesMkrBefore; mathint b;
-    pairReservesDaiBefore, pairReservesMkrBefore, b = pair.getReserves();
-    require pairReservesDaiBefore > 0;
-    require pairReservesMkrBefore > 0;
-    mathint daiBalanceOfPairBefore = dai.balanceOf(pair);
-    mathint mkrBalanceOfPairBefore = mkr.balanceOf(pair);
-    require daiBalanceOfPairBefore == pairReservesDaiBefore;
-    require mkrBalanceOfPairBefore == pairReservesMkrBefore;
-    // require daiBalanceOfPairBefore >= pairReservesDaiBefore;
-    // require mkrBalanceOfPairBefore >= pairReservesMkrBefore;
-    // require daiBalanceOfPairBefore / mkrBalanceOfPairBefore >= 100;
-    // require daiBalanceOfPairBefore / mkrBalanceOfPairBefore <= 10000;
+    mathint reserveUsdsBefore; mathint reserveGemBefore; mathint b;
+    reserveUsdsBefore, reserveGemBefore, b = pair.getReserves();
+    mathint usdsBalanceOfPairBefore = usds.balanceOf(pair);
+    mathint skyBalanceOfPairBefore  = sky.balanceOf(pair);
+    // Reserves are in sync with the balances, so `_getReserves` does not call `sync`
+    require usdsBalanceOfPairBefore == reserveUsdsBefore;
+    require skyBalanceOfPairBefore  == reserveGemBefore;
+    require reserveUsdsBefore > 0 && reserveGemBefore > 0;
+
+    mathint usdsBalanceOfFlapperBefore = usds.balanceOf(currentContract);
+    mathint skyBalanceOfFlapperBefore  = sky.balanceOf(currentContract);
+    // Token invariant - usds credits the balance unchecked, relying on the sum of the
+    // balances being the total supply
+    require usds.totalSupply() >= usdsBalanceOfPairBefore + usdsBalanceOfFlapperBefore;
     mathint pairBalanceOfReceiverBefore = pair.balanceOf(receiver);
     mathint pairTotalSupplyBefore = pair.totalSupply();
-    // require pairTotalSupplyBefore == to_mathint(aux.sqrt(require_uint256(pairReservesDaiBefore * pairReservesMkrBefore)));
-    require pairTotalSupplyBefore > to_mathint(pair.MINIMUM_LIQUIDITY());
-    require pairTotalSupplyBefore * pairTotalSupplyBefore == pairReservesDaiBefore * pairReservesMkrBefore;
+    require pairTotalSupplyBefore >= pair.MINIMUM_LIQUIDITY();
     require pairTotalSupplyBefore >= pairBalanceOfReceiverBefore;
 
-    mathint wlot = lot / RAY();
-    mathint totalDai = getTotalDai(wlot, daiBalanceOfPairBefore);
-    mathint bought = getAmountOut(wlot, daiBalanceOfPairBefore, mkrBalanceOfPairBefore);
+    mathint sell = getUsdsToSell(lot, reserveUsdsBefore);
+    mathint buy  = getAmountOut(sell, reserveUsdsBefore, reserveGemBefore);
 
-    kick(e, lot, a);
+    exec(e, lot);
 
-    mathint vatDaiSenderAfter = vat.dai(e.msg.sender);
-    mathint pairReservesDaiAfter; mathint pairReservesMkrAfter;
-    pairReservesDaiAfter, pairReservesMkrAfter, b = pair.getReserves();
-    mathint daiBalanceOfPairAfter = dai.balanceOf(pair);
-    mathint mkrBalanceOfPairAfter = mkr.balanceOf(pair);
+    mathint reserveUsdsAfter; mathint reserveGemAfter;
+    reserveUsdsAfter, reserveGemAfter, b = pair.getReserves();
+    mathint usdsBalanceOfPairAfter = usds.balanceOf(pair);
+    mathint skyBalanceOfPairAfter  = sky.balanceOf(pair);
+    mathint usdsBalanceOfFlapperAfter = usds.balanceOf(currentContract);
+    mathint skyBalanceOfFlapperAfter  = sky.balanceOf(currentContract);
     mathint pairBalanceOfReceiverAfter = pair.balanceOf(receiver);
-    mathint pairTotalSupplyAfter = pair.totalSupply();
 
-    assert vatDaiSenderAfter == vatDaiSenderBefore - totalDai * RAY(), "kick did not decrease vat.dai(sender) by totalDai * RAY()";
-    assert pairReservesDaiAfter == daiBalanceOfPairBefore + totalDai, "kick did not increase the reserves by totalDai + existing difference with the balance";
-    assert pairReservesMkrAfter == mkrBalanceOfPairBefore, "kick did not keep the reserves as the balance";
-    assert pairReservesDaiAfter == daiBalanceOfPairAfter, "kick did not leave dai reserves synced";
-    assert pairReservesMkrAfter == mkrBalanceOfPairAfter, "kick did not leave mkr reserves synced";
-    assert pairBalanceOfReceiverAfter > pairBalanceOfReceiverBefore, "kick did not increase the pair balance of receiver";
-    mathint liquidityGained = pairBalanceOfReceiverAfter - pairBalanceOfReceiverBefore;
-    require bought > liquidityGained * pairReservesMkrAfter / pairTotalSupplyAfter;
-    assert bought - liquidityGained * pairReservesMkrAfter / pairTotalSupplyAfter <= 1000;
-    // assert isAprox(bought, liquidityGained * pairReservesMkrAfter / pairTotalSupplyAfter, 1000), "kick did not leave the amount of mkr that can be withdrawn aprox the same than the bought one";
-    // assert isAprox(totalDai - wlot, liquidityGained * pairReservesDaiAfter / pairTotalSupplyAfter, 1000), "kick did not leave the amount of dai that can be withdrawn aprox the same than the deposited one";
+    assert sqrtCalled;
+    assert sell <= lot;
+    assert buy < reserveGemBefore;
+    assert usdsBalanceOfFlapperAfter == usdsBalanceOfFlapperBefore - lot;
+    assert skyBalanceOfFlapperAfter == skyBalanceOfFlapperBefore;
+    assert usdsBalanceOfPairAfter == usdsBalanceOfPairBefore + lot;
+    assert skyBalanceOfPairAfter == skyBalanceOfPairBefore;
+    assert reserveUsdsAfter == usdsBalanceOfPairAfter;
+    assert reserveGemAfter == skyBalanceOfPairAfter;
+    assert pairBalanceOfReceiverAfter > pairBalanceOfReceiverBefore;
+    assert pairBalanceOfReceiverAfter - pairBalanceOfReceiverBefore ==
+           getLiquidity(lot - sell, buy, reserveUsdsBefore + sell, reserveGemBefore - buy, pairTotalSupplyBefore);
 }
 
-// Verify revert rules on kick
-rule kick_revert(uint256 lot, uint256 a) {
+// Verify revert rules on exec
+rule exec_revert(uint256 lot) {
     env e;
 
+    require usdsFirst(); // The `!usdsFirst` case is symmetric (usds is linked as token0 of the pair)
     require pair.unlocked() == 1;
 
-    mathint wardsSender = wards(e.msg.sender);
-    mathint live = live();
-    mathint zzz = zzz();
-    mathint hop = hop();
-    mathint want = want();
     address receiver = receiver();
 
-    mathint vatDaiSender = vat.dai(e.msg.sender);
-    mathint vatDaiFlapper = vat.dai(currentContract);
-    mathint vatDaiDaiJoin = vat.dai(daiJoin);
-    mathint vatCanSenderFlapper = vat.can(e.msg.sender, currentContract);
-    mathint vatCanFlapperDaiJoin = vat.can(currentContract, daiJoin);
-    mathint pairReservesDai; mathint pairReservesMkr; mathint b;
-    pairReservesDai, pairReservesMkr, b = pair.getReserves();
-    mathint daiBalanceOfPair = dai.balanceOf(pair);
-    mathint mkrBalanceOfPair = mkr.balanceOf(pair);
-    mathint mkrBalanceOfFlapper = mkr.balanceOf(currentContract);
+    mathint wardsSender = wards(e.msg.sender);
+    mathint want = want();
+
+    mathint reserveUsds; mathint reserveGem; mathint b;
+    reserveUsds, reserveGem, b = pair.getReserves();
+    // `_getReserves` syncs the reserves to the balances if they are behind, so the
+    // effective reserves used by exec are the balances of the pair
+    mathint usdsBalanceOfPair = usds.balanceOf(pair);
+    mathint skyBalanceOfPair  = sky.balanceOf(pair);
+    require usdsBalanceOfPair >= reserveUsds;
+    require skyBalanceOfPair  >= reserveGem;
+    require usdsBalanceOfPair > 0 && skyBalanceOfPair > 0;
+
+    mathint usdsBalanceOfFlapper = usds.balanceOf(currentContract);
+    mathint skyBalanceOfFlapper  = sky.balanceOf(currentContract);
+    // Token invariants, so the transfers can not overflow a balance
+    require usdsBalanceOfPair + usdsBalanceOfFlapper <= usds.totalSupply();
+    require skyBalanceOfPair + skyBalanceOfFlapper <= sky.totalSupply();
+
     mathint pairBalanceOfReceiver = pair.balanceOf(receiver);
     mathint pairTotalSupply = pair.totalSupply();
-
+    require pairTotalSupply > 0;
     require pairTotalSupply >= pairBalanceOfReceiver;
-    require pairReservesDai > 0;
-    require pairReservesMkr > 0;
-    require daiBalanceOfPair >= pairReservesDai;
-    require mkrBalanceOfPair >= pairReservesMkr;
 
-    mathint wlot = lot / RAY();
-    mathint totalDai = getTotalDai(wlot, daiBalanceOfPair);
-    mathint bought = getAmountOut(wlot, daiBalanceOfPair, mkrBalanceOfPair);
+    mathint sqrtArg = usdsBalanceOfPair * (lot * 3988000 + usdsBalanceOfPair * 3988009);
+    mathint sell = getUsdsToSell(lot, usdsBalanceOfPair);
+    mathint buy  = getAmountOut(sell, usdsBalanceOfPair, skyBalanceOfPair);
+    mathint liquidity = getLiquidity(lot - sell, buy, usdsBalanceOfPair + sell, skyBalanceOfPair - buy, pairTotalSupply);
 
     mathint price = pip.read();
     mathint par = spotter.par();
     require par > 0;
-    require (price * RAY() / par) > 0;
 
-    kick@withrevert(e, lot, a);
+    exec@withrevert(e, lot);
 
+    // auth
     bool revert1  = e.msg.value > 0;
     bool revert2  = wardsSender != 1;
-    bool revert3  = live != 1;
-    bool revert4  = zzz + hop > max_uint256;
-    bool revert5  = to_mathint(e.block.timestamp) < zzz + hop;
-    bool revert6  = daiBalanceOfPair > maxuint112() || mkrBalanceOfPair > maxuint112();
-    bool revert7  = wlot * (997 * wlot + 1997 * daiBalanceOfPair) > max_uint256;
-    bool revert8  = totalDai >= lot * 220 / 100;
-    bool revert9  = wlot * 997 * mkrBalanceOfPair > max_uint256;
-    bool revert10 = daiBalanceOfPair * 100 + (wlot * 997) > max_uint256;
-    bool revert11 = wlot * want > max_uint256;
-    bool revert12 = price * RAY() > max_uint256;
-    bool revert13 = bought < wlot * want / (price * RAY() / par);
-    bool revert14 = vatCanSenderFlapper != 1;
-    bool revert15 = vatDaiSender < totalDai * RAY();
-    bool revert16 = vatDaiFlapper + totalDai * RAY() > max_uint256;
-    bool revert17 = vatCanFlapperDaiJoin != 1;
-    bool revert18 = vatDaiDaiJoin + totalDai * RAY() > max_uint256;
-    bool revert19 = bought == 0;
-    bool revert20 = bought > mkrBalanceOfPair;
-    bool revert21 = mkrBalanceOfFlapper + bought > max_uint256;
-    bool revert22 = daiBalanceOfPair + totalDai > max_uint256;
-    bool revert23 = mkrBalanceOfPair + bought > max_uint256;
+    // _getReserves (sync)
+    bool revert3  = usdsBalanceOfPair > maxuint112() || skyBalanceOfPair > maxuint112();
+    // _getUsdsToSell
+    bool revert4  = lot * 3988000 > max_uint256;
+    bool revert5  = lot * 3988000 + usdsBalanceOfPair * 3988009 > max_uint256;
+    bool revert6  = sqrtArg > max_uint256;
+    bool revert7  = sqrtGhost(sqrtArg) < usdsBalanceOfPair * 1997;
+    // _getAmountOut
+    bool revert8  = sell * 997 > max_uint256 || sell * 997 * skyBalanceOfPair > max_uint256;
+    bool revert9  = usdsBalanceOfPair * 1000 + sell * 997 > max_uint256;
+    // want check
+    bool revert10 = price * RAY() > max_uint256;
+    bool revert11 = price * RAY() / par == 0;
+    bool revert12 = sell * want > max_uint256;
+    bool revert13 = !revert11 && buy < sell * want / (price * RAY() / par);
+    // usds transfer of sell
+    bool revert14 = usdsBalanceOfFlapper < sell;
+    // swap
+    bool revert15 = buy == 0;
+    bool revert16 = buy >= skyBalanceOfPair;
+    bool revert17 = sell == 0;
+    bool revert18 = usdsBalanceOfPair + sell > maxuint112();
+    // usds transfer of lot - sell
+    bool revert19 = sell > lot;
+    bool revert20 = usdsBalanceOfFlapper < lot;
+    // mint
+    bool revert21 = (lot - sell) * pairTotalSupply > max_uint256;
+    bool revert22 = buy * pairTotalSupply > max_uint256;
+    bool revert23 = !revert16 && liquidity == 0;
+    bool revert24 = !revert16 && pairTotalSupply + liquidity > max_uint256;
+    bool revert25 = usdsBalanceOfPair + lot > maxuint112();
 
     assert lastReverted <=> revert1  || revert2  || revert3  ||
                             revert4  || revert5  || revert6  ||
@@ -338,32 +333,6 @@ rule kick_revert(uint256 lot, uint256 a) {
                             revert13 || revert14 || revert15 ||
                             revert16 || revert17 || revert18 ||
                             revert19 || revert20 || revert21 ||
-                            revert22 || revert23, "Revert rules failed";
-}
-
-// Verify correct storage changes for non reverting cage
-rule cage() {
-    env e;
-
-    uint256 random;
-    cage(e, random);
-
-    mathint liveAfter = live();
-
-    assert liveAfter == 0, "cage did not set live to 0";
-}
-
-// Verify revert rules on cage
-rule cage_revert() {
-    env e;
-
-    mathint wardsSender = wards(e.msg.sender);
-
-    uint256 random;
-    cage@withrevert(e, random);
-
-    bool revert1 = e.msg.value > 0;
-    bool revert2 = wardsSender != 1;
-
-    assert lastReverted <=> revert1 || revert2, "Revert rules failed";
+                            revert22 || revert23 || revert24 ||
+                            revert25;
 }
