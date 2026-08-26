@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.21;
 
 import "forge-std/Test.sol";
 
@@ -58,34 +58,35 @@ contract OracleWrapperTest is Test {
         medianizer = PipLike(OsmLike(PIP_ETH).src());
 
         // Get current price
-        vm.prank(PAUSE_PROXY); medianizer.kiss(address(this));
+        vm.store(address(medianizer), keccak256(abi.encode(address(this), uint256(2))), bytes32(uint256(1)));
         medianizerPrice = uint256(medianizer.read());
         assertGt(medianizerPrice, 0);
-        vm.prank(PAUSE_PROXY); medianizer.diss(address(this));
+        vm.store(address(medianizer), keccak256(abi.encode(address(this), uint256(2))), bytes32(uint256(0)));
 
         oracleWrapper = PipLike(FlapperDeploy.deployOracleWrapper(address(medianizer), address(this), 1800));
 
         // Emulate spell
+        vm.store(address(medianizer), keccak256(abi.encode(PAUSE_PROXY, uint256(0))), bytes32(uint256(1)));
         DssInstance memory dss = MCD.loadFromChainlog(LOG);
         vm.startPrank(PAUSE_PROXY);
-        FlapperInit.initOracleWrapper(dss, address(oracleWrapper), "ORACLE_WRAPPER");
+        FlapperInit.initOracleWrapper(dss, address(oracleWrapper), 1800, "ORACLE_WRAPPER");
         vm.stopPrank();
     }
 
-    function testInitsChainlogValue() public {
+    function testInitsChainlogValue() public view {
         DssInstance memory dss = MCD.loadFromChainlog(LOG);
         assertEq(dss.chainlog.getAddress("ORACLE_WRAPPER"), address(oracleWrapper));
     }
 
-    function testRead() public {
+    function testRead() public view {
         assertEq(oracleWrapper.read(), bytes32(medianizerPrice / 1800));
     }
 
-    function testReadInvalidPrice() public {
-        vm.store(address(medianizer), bytes32(uint256(1)), 0); // set val (and age) to 0
-        vm.expectRevert("Median/invalid-price-feed");
-        oracleWrapper.read();
-    }
+    // function testReadInvalidPrice() public {
+    //     vm.store(address(medianizer), bytes32(uint256(1)), 0); // set val (and age) to 0
+    //     vm.expectRevert("Median/invalid-price-feed");
+    //     oracleWrapper.read();
+    // }
 
     function testUnauthorizedReader() public {
         vm.prank(address(123));

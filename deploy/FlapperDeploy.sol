@@ -14,41 +14,42 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-pragma solidity ^0.8.16;
+pragma solidity ^0.8.21;
 
 import "dss-interfaces/Interfaces.sol";
+import { MCD, DssInstance } from "dss-test/MCD.sol";
 import { ScriptTools } from "dss-test/ScriptTools.sol";
 
-import { FlapperInstance } from "./FlapperInstance.sol";
+import { SplitterInstance } from "./SplitterInstance.sol";
 import { FlapperUniV2 } from "src/FlapperUniV2.sol";
 import { FlapperUniV2SwapOnly } from "src/FlapperUniV2SwapOnly.sol";
-import { FlapperMom } from "src/FlapperMom.sol";
+import { SplitterMom } from "src/SplitterMom.sol";
 import { OracleWrapper } from "src/OracleWrapper.sol";
+import { Splitter } from "src/Splitter.sol";
+import { Kicker } from "src/Kicker.sol";
+import { FarmOwner } from "src/FarmOwner.sol";
+import { SBEBeam } from "src/SBEBeam.sol";
 
-// Deploy a Flapper instance
 library FlapperDeploy {
+
+    address constant LOG = 0xdA0Ab1e0017DEbCd72Be8599041a2aa3bA7e740F;
 
     function deployFlapperUniV2(
         address deployer,
         address owner,
-        address daiJoin,
         address spotter,
+        address usds,
         address gem,
         address pair,
         address receiver,
         bool    swapOnly
-    ) internal returns (FlapperInstance memory flapperInstance) {
-        address _flapper =
-            swapOnly ? address(new FlapperUniV2SwapOnly(daiJoin, spotter, gem, pair, receiver))
-                     : address(new FlapperUniV2(daiJoin, spotter, gem, pair, receiver))
+    ) internal returns (address flapper) {
+        flapper =
+            swapOnly ? address(new FlapperUniV2SwapOnly(spotter, usds, gem, pair, receiver))
+                     : address(new FlapperUniV2(spotter, usds, gem, pair, receiver))
         ;
-        address _mom = address(new FlapperMom(_flapper));
 
-        ScriptTools.switchOwner(_flapper, deployer, owner);
-        DSAuthAbstract(_mom).setOwner(owner);
-
-        flapperInstance.flapper = _flapper;
-        flapperInstance.mom     = _mom;
+        ScriptTools.switchOwner(flapper, deployer, owner);
     }
 
     function deployOracleWrapper(
@@ -57,5 +58,55 @@ library FlapperDeploy {
         uint256 divisor
     ) internal returns (address wrapper) {
         wrapper = address(new OracleWrapper(pip, flapper, divisor));
+    }
+
+    function deploySplitter(
+        address deployer,
+        address owner,
+        address usdsJoin
+    ) internal returns (SplitterInstance memory splitterInstance) {
+        address splitter = address(new Splitter(usdsJoin));
+        address mom = address(new SplitterMom(splitter));
+
+        ScriptTools.switchOwner(splitter, deployer, owner);
+        DSAuthAbstract(mom).setOwner(owner);
+
+        splitterInstance.splitter = splitter;
+        splitterInstance.mom      = mom;
+    }
+
+    function deployKicker(
+        address deployer,
+        address owner
+    ) internal returns (address kicker) {
+        DssInstance memory dss = MCD.loadFromChainlog(LOG);
+
+        kicker = address(new Kicker(
+                                dss.chainlog.getAddress("MCD_VOW"),
+                                dss.chainlog.getAddress("MCD_SPLIT")));
+
+        ScriptTools.switchOwner(kicker, deployer, owner);
+    }
+
+    function deployFarmOwner(
+        address deployer,
+        address owner
+    ) internal returns (address farmOwner) {
+        DssInstance memory dss = MCD.loadFromChainlog(LOG);
+
+        farmOwner = address(new FarmOwner(address(Splitter(dss.chainlog.getAddress("MCD_SPLIT")).farm())));
+
+        ScriptTools.switchOwner(farmOwner, deployer, owner);
+    }
+
+    function deploySBEBeam(
+        address deployer,
+        address owner
+    ) internal returns (address beam) {
+        DssInstance memory dss = MCD.loadFromChainlog(LOG);
+
+        beam = address(new SBEBeam(dss.chainlog.getAddress("MCD_KICK")));
+
+        ScriptTools.switchOwner(beam, deployer, owner);
     }
 }
