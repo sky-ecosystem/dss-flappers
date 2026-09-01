@@ -256,7 +256,7 @@ rule kick(uint256 tot, uint256 a) {
     mathint pay = tot / RAY() - lot;
     mathint buy = getAmountOut(lot, reserveUsds, reserveGem);
 
-    kick(e, tot, a);
+    mathint id = kick(e, tot, a);
 
     mathint vatDaiSenderAfter = vat.dai(e.msg.sender);
     mathint vatDaiSplitterAfter = vat.dai(currentContract);
@@ -269,6 +269,7 @@ rule kick(uint256 tot, uint256 a) {
     mathint skyBalanceOfReceiverAfter = sky.balanceOf(receiver);
     mathint farmNotificationsAfter = farm.notifications();
 
+    assert id == 0;
     assert zzz() == e.block.timestamp;
     assert vatDaiSenderAfter == vatDaiSenderBefore - tot;
     assert vatDaiSplitterAfter == vatDaiSplitterBefore + tot - (lot + pay) * RAY();

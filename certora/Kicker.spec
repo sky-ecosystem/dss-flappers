@@ -253,31 +253,11 @@ rule flap_revert() {
     bool revert18 = vatCanKickerSplitter != 1;
     bool revert19 = vatDaiSplitter + kbump > max_uint256;
 
-    assert revert1  => lastReverted;
-    assert revert2  => lastReverted;
-    assert revert3  => lastReverted;
-    assert revert4  => lastReverted;
-    assert revert5  => lastReverted;
-    assert revert6  => lastReverted;
-    assert revert7  => lastReverted;
-    assert revert8  => lastReverted;
-    assert revert9  => lastReverted;
-    assert revert10 => lastReverted;
-    assert revert11 => lastReverted;
-    assert revert12 => lastReverted;
-    assert revert13 => lastReverted;
-    assert revert14 => lastReverted;
-    assert revert15 => lastReverted;
-    assert revert16 => lastReverted;
-    assert revert17 => lastReverted;
-    assert revert18 => lastReverted;
-    assert revert19 => lastReverted;
-
-    assert lastReverted => revert1  || revert2  || revert3  ||
-                           revert4  || revert5  || revert6  ||
-                           revert7  || revert8  || revert9  ||
-                           revert10 || revert11 || revert12 ||
-                           revert13 || revert14 || revert15 ||
-                           revert16 || revert17 || revert18 ||
-                           revert19;
+    assert lastReverted <=> revert1  || revert2  || revert3  ||
+                            revert4  || revert5  || revert6  ||
+                            revert7  || revert8  || revert9  ||
+                            revert10 || revert11 || revert12 ||
+                            revert13 || revert14 || revert15 ||
+                            revert16 || revert17 || revert18 ||
+                            revert19;
 }
