@@ -373,51 +373,21 @@ rule kick_revert(uint256 tot, uint256 a) {
     bool revert26 = lot > 0 && !revert24 && buy < lot * want / (price * RAY() / par);
     bool revert27 = lot > 0 && buy == 0;
     bool revert28 = lot > 0 && buy >= reserveGem;
-    bool revert29 = lot > 0 && (receiver == usds || receiver == sky);
+    // the pair rejects the tokens as `to`, sky itself rejects the zero address
+    bool revert29 = lot > 0 && (receiver == usds || receiver == sky || receiver == 0);
     bool revert30 = lot > 0 && (usdsBalanceOfPair + lot > maxuint112() ||
                                 skyBalanceOfPair - (receiver != pair ? buy : 0) > maxuint112());
 
-    assert revert1  => lastReverted;
-    assert revert2  => lastReverted;
-    assert revert3  => lastReverted;
-    assert revert4  => lastReverted;
-    assert revert5  => lastReverted;
-    assert revert6  => lastReverted;
-    assert revert7  => lastReverted;
-    assert revert8  => lastReverted;
-    assert revert9  => lastReverted;
-    assert revert10 => lastReverted;
-    assert revert11 => lastReverted;
-    assert revert12 => lastReverted;
-    assert revert13 => lastReverted;
-    assert revert14 => lastReverted;
-    assert revert15 => lastReverted;
-    assert revert16 => lastReverted;
-    assert revert17 => lastReverted;
-    assert revert18 => lastReverted;
-    assert revert19 => lastReverted;
-    assert revert20 => lastReverted;
-    assert revert21 => lastReverted;
-    assert revert22 => lastReverted;
-    assert revert23 => lastReverted;
-    assert revert24 => lastReverted;
-    assert revert25 => lastReverted;
-    assert revert26 => lastReverted;
-    assert revert27 => lastReverted;
-    assert revert28 => lastReverted;
-    assert revert29 => lastReverted;
-    assert revert30 => lastReverted;
-
-    // assert lastReverted => revert1  || revert2  || revert3  ||
-    //                        revert4  || revert5  || revert6  ||
-    //                        revert7  || revert8  || revert9  ||
-    //                        revert10 || revert11 || revert12 ||
-    //                        revert13 || revert14 || revert15 ||
-    //                        revert16 || revert17 || revert18 ||
-    //                        revert19 || revert20 || revert21 ||
-    //                        revert22 || revert23 || revert24 ||
-    //                        revert25 || revert26 || revert27 ||
-    //                        revert28 || revert29 || revert30;
+    assert lastReverted <=> revert1  || revert2  || revert3  ||
+                            revert4  || revert5  || revert6  ||
+                            revert7  || revert8  || revert9  ||
+                            revert10 || revert11 || revert12 ||
+                            revert13 || revert14 || revert15 ||
+                            revert16 || revert17 || revert18 ||
+                            revert19 || revert20 || revert21 ||
+                            revert22 || revert23 || revert24 ||
+                            revert25 || revert26 || revert27 ||
+                            revert28 || revert29 || revert30;
 }
 
 // Verify correct storage changes for non reverting cage
