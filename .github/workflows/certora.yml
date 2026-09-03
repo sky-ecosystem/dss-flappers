@@ -52,6 +52,6 @@ jobs:
         run: pip3 install certora-cli-beta
 
       - name: Verify ${{ matrix.flappers }}
-        run: make certora-${{ matrix.flappers }}
+        run: make certora-${{ matrix.flappers }} results=1
         env:
           CERTORAKEY: ${{ secrets.CERTORAKEY }}
