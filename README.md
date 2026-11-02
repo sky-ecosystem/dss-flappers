@@ -91,3 +91,24 @@ Allows for scaling down an oracle price by a certain value. This can be useful w
 ### General Note:
 
 * Availability and accounting of the withdrawn `USDS` is the responsibility of the `vow`. At the time of a `kick`, the `vow` is expected to hold at least the drawn amount (`vow.bump`) over the configured flapping threshold (`vow.hump`).
+
+## Audits
+
+Audit reports are hosted on the auditors' public portfolio pages:
+
+| Auditor | Report | Date |
+| --- | --- | --- |
+| Cantina | [Sky: SBE Beam](https://cantina.xyz/portfolio/ead1c784-db08-4c72-a8b5-bcb6720d865b) | 2026-07-13 |
+| Cantina | [DSS Flappers](https://cantina.xyz/portfolio/5b73b044-4a1d-41ed-9e95-ab58809b8792) | 2025-10-22 |
+| ChainSecurity | [Sky Dss Flappers](https://www.chainsecurity.com/security-audit/makerdao-dss-flappers/) | 2025-10-21 |
+| Cantina | [dss-flappers](https://cantina.xyz/portfolio/39a7ac51-967a-4ca7-bfd9-f8ddd6717c97) | 2024-06-11 |
+| ChainSecurity | [Maker FlapperUniV2SwapOnly](https://www.chainsecurity.com/security-audit/maker-flapperuniv2swaponly/) | 2023-07-27 |
+| ChainSecurity | [Maker FlapperUniV2](https://www.chainsecurity.com/security-audit/maker-flapperuniv2/) | 2023-06-06 |
+
+ChainSecurity reports are cumulative: each portfolio page hosts the latest version of the report, which covers all previously reviewed versions.
+
+### Other reports
+
+The following reports are not available on an auditor portfolio page and are kept in this repository:
+
+- [Sherlock (20240917-Sherlock_MakerDAO_Endgame_Audit_Report.pdf)](./audit/20240917-Sherlock_MakerDAO_Endgame_Audit_Report.pdf)
